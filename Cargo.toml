@@ -1,0 +1,8 @@
+[package]
+name = "noether"
+version = "0.1.0"
+authors = ["Josh Mitchell <yoshanuikabundi@gmail.com>"]
+
+[dependencies]
+uom = { git = "https://github.com/iliekturtles/uom", branch = "dev-test-fix" }
+typenum = "1.10.0"
