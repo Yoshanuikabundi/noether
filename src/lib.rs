@@ -1,7 +1,5 @@
 #[macro_use]
-extern crate uom;
-
-extern crate typenum;
+extern crate dimensioned as dim;
 
 pub mod geom;
 pub mod units;
@@ -28,14 +26,7 @@ mod samplers {
 }
 
 pub mod topology {
-    use units::{
-        f32,
-        // f64,
-        // vec3
-    };
-    use units::charge::{
-        elem_charge,
-    };
+    use units::*;
 
     #[derive(Debug)]
     pub struct Top {
@@ -43,12 +34,17 @@ pub mod topology {
     }
 
     impl Top {
-        pub fn gen_lj_fluid(num:usize, mass: f32::Mass, epsilon: f32::Energy, sigma: f32::Length) -> Top {
+        pub fn gen_lj_fluid(
+            num:usize,
+            mass: Dalton<f32>,
+            epsilon: KilojoulePerMole<f32>,
+            sigma: Nanometer<f32>
+        ) -> Top {
             let atom = Atom {
                 mass,
                 epsilon,
                 sigma,
-                charge: f32::Charge::new::<elem_charge>(0.0),
+                charge: 0.0 * f32consts::E,
             };
             let atoms = vec![atom.clone(); num];
             Top { atoms }
@@ -57,10 +53,10 @@ pub mod topology {
 
     #[derive(Debug, Clone)]
     struct Atom {
-        mass: f32::Mass,
-        charge: f32::Charge,
-        epsilon: f32::Energy,
-        sigma: f32::Length,
+        mass: Dalton<f32>,
+        charge: ElemCharge<f32>,
+        epsilon: KilojoulePerMole<f32>,
+        sigma: Nanometer<f32>,
     }
 }
 

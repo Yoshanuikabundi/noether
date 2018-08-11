@@ -14,25 +14,20 @@ use std::ops::{
 };
 
 use units;
-use units::GMXQ;
-use units::GMXU;
 
-use typenum::consts::{
-    Z0,
-    P1,
-    P2,
-    N2,
-    N4,
+use typenum::operator_aliases::{
+    Square
 };
 
-type ForceDim = GMXQ<P1, P1, N2, Z0, Z0>;
-type Force2Dim = GMXQ<P2, P2, N4, Z0, Z0>;
+use dim::{
+    Sqrt
+};
 
 type V = f32;
-type Q = units::Quantity<ForceDim, GMXU<V>, V>;
-type Q2 = units::Quantity<Force2Dim, GMXU<V>, V>;
+type Q = units::KilojoulePerMolePerNanometer<V>;
+type Q2 = Square<units::KilojoulePerMolePerNanometer<V>>;
 
-const UNIT: Q = units::f32::KJPMNM;
+const UNIT: Q = units::f32consts::KJPMNM;
 
 /// A vector in 3 dimensions.
 ///
@@ -167,56 +162,56 @@ impl Vec3D {
     /// assert_eq!(point.norm(), 3.0 * KJPMNM);
     /// ```
     pub fn norm(&self) -> Q {
-        self.norm2().value.sqrt() * UNIT
+        self.norm2().sqrt()
     }
 
-    /// Normalize vector in place
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use noether::geom::force::Vec3D;
-    /// use noether::units::f32::KJPMNM;
-    ///
-    /// let mut point = Vec3D::from(2.0, -1.0, 2.0);
-    /// point.normalize();
-    /// assert_eq!(
-    ///     point,
-    ///     Vec3D::from(2.0/3.0, -1.0/3.0, 2.0/3.0)
-    /// );
-    /// assert_eq!(point.norm(), 1.0 * KJPMNM);
-    /// ```
-    pub fn normalize(&mut self) -> &Self {
-        let n = self.norm();
-        self.x /= n.value;
-        self.y /= n.value;
-        self.z /= n.value;
-        self
-    }
-
-    /// Normalize vector in place after taking ownership
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use noether::geom::force::Vec3D;
-    /// use noether::units::f32::KJPMNM;
-    ///
-    /// let point = Vec3D::from(2.0, -1.0, 2.0);
-    /// let point = point.normalize_into();
-    /// assert_eq!(
-    ///     point,
-    ///     Vec3D::from(2.0/3.0, -1.0/3.0, 2.0/3.0)
-    /// );
-    /// assert_eq!(point.norm(), 1.0 * KJPMNM);
-    /// ```
-    pub fn normalize_into(mut self) -> Self {
-        let n = self.norm();
-        self.x /= n.value;
-        self.y /= n.value;
-        self.z /= n.value;
-        self
-    }
+//    /// Normalize vector in place
+//    ///
+//    /// # Examples
+//    ///
+//    /// ```
+//    /// use noether::geom::force::Vec3D;
+//    /// use noether::units::f32::KJPMNM;
+//    ///
+//    /// let mut point = Vec3D::from(2.0, -1.0, 2.0);
+//    /// point.normalize();
+//    /// assert_eq!(
+//    ///     point,
+//    ///     Vec3D::from(2.0/3.0, -1.0/3.0, 2.0/3.0)
+//    /// );
+//    /// assert_eq!(point.norm(), 1.0 * KJPMNM);
+//    /// ```
+//    pub fn normalize(&mut self) -> &Self {
+//        let n = self.norm();
+//        self.x /= n;
+//        self.y /= n;
+//        self.z /= n;
+//        self
+//    }
+//
+//    /// Normalize vector in place after taking ownership
+//    ///
+//    /// # Examples
+//    ///
+//    /// ```
+//    /// use noether::geom::force::Vec3D;
+//    /// use noether::units::f32::KJPMNM;
+//    ///
+//    /// let point = Vec3D::from(2.0, -1.0, 2.0);
+//    /// let point = point.normalize_into();
+//    /// assert_eq!(
+//    ///     point,
+//    ///     Vec3D::from(2.0/3.0, -1.0/3.0, 2.0/3.0)
+//    /// );
+//    /// assert_eq!(point.norm(), 1.0 * KJPMNM);
+//    /// ```
+//    pub fn normalize_into(mut self) -> Self {
+//        let n = self.norm();
+//        self.x /= n;
+//        self.y /= n;
+//        self.z /= n;
+//        self
+//    }
 
     /// Return a new, normalized vector
     ///
@@ -234,11 +229,11 @@ impl Vec3D {
     /// assert_eq!(point.normalized().norm(), 1.0 * KJPMNM);
     /// ```
     pub fn normalized(&self) -> Vec3D {
-        let n = self.norm();
+        let n = self.norm().value_unsafe;
         Vec3D {
-            x: self.x / n.value,
-            y: self.y / n.value,
-            z: self.z / n.value,
+            x: self.x / n,
+            y: self.y / n,
+            z: self.z / n,
         }
     }
 

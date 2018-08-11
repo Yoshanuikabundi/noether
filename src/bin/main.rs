@@ -1,8 +1,8 @@
 extern crate noether;
 
 use noether::topology::Top;
-use noether::units::f32;
-use noether::units::f64;
+use noether::units::f32consts as f32;
+use noether::units::f64consts as f64;
 
 fn main() {
     println!("OK let's go");
