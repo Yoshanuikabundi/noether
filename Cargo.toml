@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["Josh Mitchell <yoshanuikabundi@gmail.com>"]
 
 [dependencies]
-dimensioned = "0.6.0"
-rand = "0.5.5"
-itertools = "0.7.8"
-rayon = "1.0.2"
-chemfiles = "0.8.0"
+dimensioned = "0.6.0" # MIT/Apache-2.0
+rand = "0.5.5" # MIT/Apache-2.0
+itertools = "0.7.8" # MIT/Apache-2.0
+rayon = "1.0.2" # MIT/Apache-2.0
+chemfiles = "0.8.0" # BSD-3-Clause
