@@ -33,7 +33,7 @@ use dim::{
 /// type Force = KilojoulePerMolePerNanometer<f32>;
 /// type ForceVec = Vec3D<KilojoulePerMolePerNanometer<f32>>;
 ///
-/// let origin = Vec3D::<Force>::from(0.0, 0.0, 0.0);
+/// let origin = Vec3D::<Force>::zero();
 /// let point: Vec3D<Force> = Vec3D::from(2.0, 1.0, 0.0);
 /// let point2 = ForceVec::from(2.0, 1.0, 0.0);
 ///
@@ -51,7 +51,7 @@ pub struct Vec3D<Q: Dimensioned>
 impl<Q, V> Vec3D<Q>
     where
         Q: Copy + Dimensioned<Value=V>,
-        V: Copy
+        V: Copy + From<f32>
 {
     /// A vector in 3 dimensions.
     ///
@@ -101,6 +101,15 @@ impl<Q, V> Vec3D<Q>
             y: Q::new(y),
             z: Q::new(z)
         }
+    }
+
+    /// Create a vector of zeroes.
+    pub fn zero() -> Vec3D<Q> {
+        Vec3D::<Q>::from(
+            V::from(0.0),
+            V::from(0.0),
+            V::from(0.0)
+        )
     }
 }
 
