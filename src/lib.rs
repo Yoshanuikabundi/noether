@@ -85,23 +85,26 @@ pub mod state {
             state
         }
 
-        pub fn dist2(&self, first:&PosVec, second:&PosVec) -> Nanometer2<f32> {
+        /// Get the minimum image convention distance between two vectors,
+        /// and the corresponding distance vector
+        pub fn dist2(&self, first:&PosVec, second:&PosVec) -> (PosVec, Nanometer2<f32>) {
             let (vec_a, vec_b, vec_c) = self.boxvecs.clone();
-            let mut offset: PosVec;
-            let mut r2s: Vec<Nanometer2<f32>> = vec![];
+            let mut r2s: Vec<(PosVec, Nanometer2<f32>)> = vec![];
 
             for a in [-1.0, 0.0, 1.0].iter() {
                 for b in [-1.0, 0.0, 1.0].iter() {
                     for c in [-1.0, 0.0, 1.0].iter() {
-                        offset = vec_a.clone() * a.clone()
+                        let offset = vec_a.clone() * a.clone()
                             + vec_b.clone() * b.clone()
                             + vec_c.clone() * c.clone();
-                        r2s.push((first - second + offset).norm2());
+                        let diff = first - second + offset;
+                        let diff2 = diff.clone().norm2();
+                        r2s.push((diff, diff2));
                     }
                 }
             }
             r2s.into_iter()
-                .min_by(|a, b| a.partial_cmp(b).expect("Tried to compare a NaN"))
+                .min_by(|(_, a), (_, b)| a.partial_cmp(b).expect("Tried to compare a NaN"))
                 .unwrap()
         }
 
@@ -109,14 +112,12 @@ pub mod state {
         pub fn gen_pairs(&mut self, cutoff:Nanometer<f32>) {
             let cutoff2 = cutoff * cutoff;
 
-            println!("Collecting combinations");
             let pair_vec:Vec<((_, _),(_, _))> = self.positions.iter()
                 .enumerate()
                 .tuple_combinations()
                 .collect();
-            println!("Generating pairlist");
             self.pairlist = pair_vec.par_iter()
-                .filter(|((_, ri), (_, rj))| cutoff == 0.0 * NM || self.dist2(&ri, &rj) <= cutoff2)
+                .filter(|((_, ri), (_, rj))| cutoff == 0.0 * NM || self.dist2(&ri, &rj).1 <= cutoff2)
                 .map(|((i, _), (j, _))| (i.clone(), j.clone()))
                 .collect();
             println!("New pairlist has {} entries", self.pairlist.len());
@@ -143,7 +144,7 @@ pub mod state {
                 frame.add_atom(&atom, [x, y, z], None)?;
             }
 
-            // TODO: Set trajectory unit cell rationally
+            // TODO: Stop assuming cubic box
             let box_l = self.boxvecs.0.x.value_unsafe;
 
             let unit_cell = UnitCell::new([box_l as f64 * 10.0; 3])?;
@@ -219,15 +220,123 @@ pub mod state {
             }
             self
         }
+
+        pub fn simulate(mut self, nsteps: usize, timestep: Picosecond<f32>) -> Self {
+            // let mut rng = rand::thread_rng();
+
+            let steps_between_pairlist_updates = 10;
+
+            let pairlist_cutoff = self.topology.lj_cutoff + 1.0 * NM;
+
+            let buffer_tolerance = 0.005 * KJPM;
+
+            println!("Generating pairlist with cutoff {}", pairlist_cutoff);
+            self.gen_pairs(pairlist_cutoff);
+            println!("Calculating initial energy");
+
+            let dt = timestep;
+            let n_atoms = self.velocities.len();
+
+            assert_eq!(n_atoms, self.positions.len());
+            assert_eq!(n_atoms, self.topology.atoms.len());
+
+            for n in 0..nsteps {
+                if n % steps_between_pairlist_updates == 0 && n != 0 {
+                    println!("Regenerating pairlist at step {}", n);
+                    let prev_energy = self.calc_energy();
+                    self.gen_pairs(pairlist_cutoff);
+                    let new_energy = self.calc_energy();
+                    if new_energy != prev_energy {
+                        println!("New pairlist changed energies: {:?}, {:?}", prev_energy, new_energy);
+                    }
+                    if (new_energy - prev_energy).value_unsafe.abs() > buffer_tolerance.value_unsafe {
+                        panic!("Energy difference greater than buffer tolerance!");
+                    }
+                }
+
+                if n % 10 == 0 {
+                    let temp:Kelvin<f32> = self.velocities.iter()
+                        .zip(&self.topology.atoms)
+                        .map(|(v, atom)| {
+                            let mass = atom.mass;
+                            0.5 * mass * v.norm2()
+                        }).fold(
+                            0.0 * KJPM,
+                            |acc, k| acc + k
+                        ) / n_atoms as f32 / KB;
+
+                    print!(
+                        "Step {}, potential energy is {}, temperature is {}, ",
+                        n,
+                        self.calc_energy(),
+                        temp
+                    );
+
+                    match self.write_traj() {
+                        Ok(()) => println!("frame written to file {}", &self.trajout),
+                        Err(e) => println!("frame could not be written to file: {}", e)
+                    }
+                }
+
+                self.positions = self.velocities.iter()
+                    .zip(self.positions)
+                    .map(|(v, r)| {
+                        r + v.clone() * dt/2.0
+                    }).collect();
+
+                let forces = self.topology.calc_forces(
+                    &self.positions,
+                    &self.pairlist,
+                    |ri, rj| self.dist2(ri, rj)
+                );
+
+                self.velocities = forces.into_iter()
+                    .zip(&self.velocities)
+                    .zip(&self.topology.atoms)
+                    .map(|((f, v), atom)| {
+                        let mass = atom.mass;
+                        v.clone() + f * dt / mass
+                    }).collect();
+
+                self.positions = self.velocities.iter()
+                    .zip(self.positions)
+                    .map(|(v, r)| {
+                        r + v.clone() * dt/2.0
+                    }).collect();
+
+
+                // TODO: Stop assuming rectangular box
+                let box_x = self.boxvecs.0.x;
+                let box_y = self.boxvecs.1.y;
+                let box_z = self.boxvecs.2.z;
+
+                self.positions = self.positions.into_iter()
+                    .map(|mut pos| {
+                        while pos.x < 0.0 * NM {pos.x += box_x};
+                        while pos.y < 0.0 * NM {pos.y += box_y};
+                        while pos.z < 0.0 * NM {pos.z += box_z};
+                        pos.x %= box_x;
+                        pos.y %= box_y;
+                        pos.z %= box_z;
+                        pos
+                    }).collect();
+
+            }
+            self
+        }
     }
 }
 
 pub mod topology {
     use units::*;
     use units::f32consts::*;
-    use geom::PosVec;
+    use geom::{
+        PosVec,
+        ForceVec
+    };
     use rayon::prelude::*;
     use std;
+    use dim::Sqrt;
 
     #[derive(Debug)]
     pub struct Top {
@@ -257,7 +366,7 @@ pub mod topology {
 
         pub fn calc_energy<F>(&self, positions: &Vec<PosVec>, pairlist: &Vec<(usize, usize)>, dist2: F) -> KilojoulePerMole<f32>
             where
-                F: Fn(&PosVec, &PosVec) -> Nanometer2<f32> + std::marker::Sync
+                F: Fn(&PosVec, &PosVec) -> (PosVec, Nanometer2<f32>) + std::marker::Sync
         {
             let atoms = &self.atoms;
             let lj_cutoff_squared = self.lj_cutoff * self.lj_cutoff;
@@ -265,7 +374,7 @@ pub mod topology {
             pairlist
                 .par_iter()
                 .map(|(i, j)| {
-                    let r2 = dist2(&positions[i.clone()], &positions[j.clone()]);
+                    let (_, r2) = dist2(&positions[i.clone()], &positions[j.clone()]);
                     (i, j, r2)
                 }).filter(|(_, _, r2)| r2 <= &lj_cutoff_squared)
                 .map(|(i, j, r2)| {
@@ -273,10 +382,10 @@ pub mod topology {
                     let eps = (atoms[i.clone()].epsilon + atoms[j.clone()].epsilon) / 2.0;
                     let sig = (atoms[i.clone()].sigma + atoms[j.clone()].sigma) / 2.0;
 
-                    let sig12 = sig.value_unsafe.powi(12);
-                    let r12 = r2.value_unsafe.powi(6);
                     let sig6 = sig.value_unsafe.powi(6);
                     let r6 = r2.value_unsafe.powi(3);
+                    let sig12 = sig6 * sig6;
+                    let r12 = r6 * r6;
 
                     4.0*ONE * eps * ((sig12 / r12) - (sig6 / r6))
                 }).reduce(
@@ -284,6 +393,38 @@ pub mod topology {
                     |acc, e| acc + e
                 )
 
+        }
+
+        pub fn calc_forces<F>(&self, positions: &Vec<PosVec>, pairlist: &Vec<(usize, usize)>, dist2: F) -> Vec<ForceVec>
+            where
+                F: Fn(&PosVec, &PosVec) -> (PosVec, Nanometer2<f32>) + std::marker::Sync
+        {
+            let atoms = &self.atoms;
+            let lj_cutoff_squared = self.lj_cutoff * self.lj_cutoff;
+            let mut forces:Vec<ForceVec> = vec![ForceVec::zero(); atoms.len()];
+
+
+            for (i, j) in pairlist.iter() {
+                let (r, r2) = dist2(&positions[i.clone()], &positions[j.clone()]);
+                if r2 <= lj_cutoff_squared {
+                    // TODO: Allow other LJ combination rules than averaging
+                    let eps = (atoms[i.clone()].epsilon + atoms[j.clone()].epsilon) / 2.0;
+                    let sig = (atoms[i.clone()].sigma + atoms[j.clone()].sigma) / 2.0;
+
+                    let sig6 = sig.value_unsafe.powi(6);
+                    let r6 = r2.value_unsafe.powi(3);
+                    let sig12 = sig6 * sig6;
+                    let r12 = r6 * r6;
+
+                    let f = r.normalize_into()/NM * 48.0*ONE * (eps / r2.sqrt()) * ((sig12 / r12) - (sig6 / r6));
+
+                    // println!("{:?}", f);
+                    forces[i.clone()] += f.clone();
+                    forces[j.clone()] -= f;
+                }
+            }
+
+            forces
         }
     }
 

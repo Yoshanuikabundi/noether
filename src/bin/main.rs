@@ -14,13 +14,13 @@ use rand::Rng;
 fn main() {
     println!("OK let's go");
 
-    const SYS_SIZE: usize = 10_000;
+    const SYS_SIZE: usize = 1_000;
 
     let top = Top::gen_lj_fluid(SYS_SIZE, 12.0*DA, 0.3*KJPM, 0.30*NM);
 
     let mut rng = rand::thread_rng();
 
-    let l = 30.0_f32;
+    let l = (SYS_SIZE as f32).cbrt();
     let boxvecs = (
         PosVec::from(  l, 0.0, 0.0),
         PosVec::from(0.0,   l, 0.0),
@@ -31,9 +31,9 @@ fn main() {
         &top,
         (0..SYS_SIZE)
             .map(|_| PosVec::from(
-                rng.gen_range(0.0, l * 0.5),
-                rng.gen_range(0.0, l * 0.5),
-                rng.gen_range(0.0, l * 0.5)
+                rng.gen_range(l * 0.25, l * 0.75),
+                rng.gen_range(l * 0.25, l * 0.75),
+                rng.gen_range(l * 0.25, l * 0.75)
             )).collect(),
         (0..SYS_SIZE)
             .map(|_| VelocVec::from(
@@ -49,21 +49,30 @@ fn main() {
 
     // let energy = state.calc_energy();
 
-    let nsteps = 10_000_000;
+    let nsteps = 10_000;
     let temp = 300.0 * K;
 
-    write_state(String::from("start.pdb"), &state, l);
+    write_state(String::from("mc_start.pdb"), &state, l);
 
-    println!("Monte carlo time! Let's do {} steps at {}.", nsteps, temp);
+    println!("Monte carlo to get us started! Let's do {} steps at {:?}.", nsteps, temp);
 
-    let final_state = state.sample(nsteps, temp);
+    let state = state.sample(nsteps, temp);
+    let energy = state.calc_energy();
 
-    let energy = final_state.calc_energy();
+    let nsteps = 100_000;
+    let dt = 0.01 * PS;
+
+    write_state(String::from("md_start.pdb"), &state, l);
+
+    println!("MD time! We'll go from our state with energy {:?} and simulate {} steps for a {:?} simulation.", energy, nsteps, nsteps as f32 * dt);
+
+    let state = state.simulate(nsteps, dt);
+
 
     let out = String::from("finish.pdb");
     println!("Found a state with energy {}! Writing to {}. Bye bye!", energy, out);
 
-    write_state(out, &final_state, l);
+    write_state(out, &state, l);
 
 
 }
