@@ -413,6 +413,39 @@ impl<Q> Sub for Vec3D<Q>
     }
 }
 
+impl<'a, Q> Sub for &'a Vec3D<Q>
+    where
+        Q: Copy + Dimensioned + Sub<Q, Output=Q>
+{
+    type Output = Vec3D<Q>;
+
+    /// Vector subtraction with the `-` operator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use noether::geom::vec3d::Vec3D;
+    /// use noether::units::Nanometer;
+    /// use noether::units::f32consts::NM;
+    ///
+    /// type PosVec = Vec3D<Nanometer<f32>>;
+    ///
+    /// assert_eq!(
+    ///     PosVec::from(   4.0, 3.9, 100204.23)
+    ///     - PosVec::from(-2.6, 1.9,      0.00),
+    /// // -------------------------------------
+    ///     PosVec::from(  6.6,  2.0, 100204.23)
+    /// );
+    /// ```
+    fn sub(self, other: &Vec3D<Q>) ->  Vec3D<Q> {
+        Vec3D {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+}
+
 impl<Q> SubAssign for Vec3D<Q>
     where
         Q: Copy + Dimensioned + SubAssign<Q>

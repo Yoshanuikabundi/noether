@@ -5,3 +5,7 @@ authors = ["Josh Mitchell <yoshanuikabundi@gmail.com>"]
 
 [dependencies]
 dimensioned = "0.6.0"
+rand = "0.5.5"
+itertools = "0.7.8"
+rayon = "1.0.2"
+chemfiles = "0.8.0"

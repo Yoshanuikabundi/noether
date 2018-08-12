@@ -16,6 +16,7 @@ make_units! {
         NM3: Nanometer3 = (Nanometer2 * Nanometer), Volume;
         PS2: Picosecond2 = (Picosecond * Picosecond);
         KJPM: KilojoulePerMole = (Nanometer2 * Dalton / Picosecond2), Energy;
+        KJPMK: KilojoulePerMolePerKelvin = (KilojoulePerMole / Kelvin);
         KJPMNM: KilojoulePerMolePerNanometer = (KilojoulePerMole / Nanometer), Force;
         KJPMNM3: KilojoulePerMolePerNanometer3 = (KilojoulePerMole / Nanometer3), Pressure;
         ENM: ElemChargeNanometer = (ElemCharge * Nanometer);
@@ -50,6 +51,9 @@ make_units! {
 
         // Bar (Pressure unit, 100 kPA, ~1 atm)
         BAR: KilojoulePerMolePerNanometer3 = 16.605_390_404;
+
+        // Boltzmann constant
+        KB: KilojoulePerMolePerKelvin = 8.314_462_1E-3;
 
         PI: Unitless = consts::PI;
     }
