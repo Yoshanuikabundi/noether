@@ -374,13 +374,13 @@ pub mod topology {
             pairlist
                 .par_iter()
                 .map(|(i, j)| {
-                    let (_, r2) = dist2(&positions[i.clone()], &positions[j.clone()]);
+                    let (_, r2) = dist2(&positions[*i], &positions[*j]);
                     (i, j, r2)
                 }).filter(|(_, _, r2)| r2 <= &lj_cutoff_squared)
                 .map(|(i, j, r2)| {
                     // TODO: Allow other LJ combination rules than averaging
-                    let eps = (atoms[i.clone()].epsilon + atoms[j.clone()].epsilon) / 2.0;
-                    let sig = (atoms[i.clone()].sigma + atoms[j.clone()].sigma) / 2.0;
+                    let eps = (atoms[*i].epsilon + atoms[*j].epsilon) / 2.0;
+                    let sig = (atoms[*i].sigma + atoms[*j].sigma) / 2.0;
 
                     let sig6 = sig.value_unsafe.powi(6);
                     let r6 = r2.value_unsafe.powi(3);
@@ -405,11 +405,11 @@ pub mod topology {
 
 
             for (i, j) in pairlist.iter() {
-                let (r, r2) = dist2(&positions[i.clone()], &positions[j.clone()]);
+                let (r, r2) = dist2(&positions[*i], &positions[*j]);
                 if r2 <= lj_cutoff_squared {
                     // TODO: Allow other LJ combination rules than averaging
-                    let eps = (atoms[i.clone()].epsilon + atoms[j.clone()].epsilon) / 2.0;
-                    let sig = (atoms[i.clone()].sigma + atoms[j.clone()].sigma) / 2.0;
+                    let eps = (atoms[*i].epsilon + atoms[*j].epsilon) / 2.0;
+                    let sig = (atoms[*i].sigma + atoms[*j].sigma) / 2.0;
 
                     let sig6 = sig.value_unsafe.powi(6);
                     let r6 = r2.value_unsafe.powi(3);
@@ -419,8 +419,8 @@ pub mod topology {
                     let f = r.normalize_into()/NM * 48.0*ONE * (eps / r2.sqrt()) * ((sig12 / r12) - (sig6 / r6));
 
                     // println!("{:?}", f);
-                    forces[i.clone()] += f.clone();
-                    forces[j.clone()] -= f;
+                    forces[*i] += f.clone();
+                    forces[*j] -= f;
                 }
             }
 
