@@ -47,11 +47,14 @@ pub mod state {
     use chemfiles;
     use chemfiles::{Trajectory, Frame, Atom, UnitCell};
 
+    use dim::Sqrt;
+
     pub struct State<'a> {
         pub topology: &'a Top,
         pub positions: Vec<PosVec>,
         pub velocities: Vec<VelocVec>,
         pairlist: Vec<(usize, usize)>,
+        // pairlist: Vec<(usize, Vec<usize>)>,
         boxvecs: (PosVec, PosVec, PosVec),
         trajout: String
     }
@@ -123,6 +126,27 @@ pub mod state {
             println!("New pairlist has {} entries", self.pairlist.len());
         }
 
+        // /// Generate a verlet pairlist
+        // pub fn gen_pairs(&mut self, cutoff:Nanometer<f32>) {
+        //     let cutoff2 = cutoff * cutoff;
+
+        //     let pair_vec:Vec<((_, _),(_, _))> = self.positions.iter()
+        //         .enumerate()
+        //         .tuple_combinations()
+        //         .collect();
+        //     self.pairlist = pair_vec.par_iter()
+        //         .filter(|((_, ri), (_, rj))| cutoff == 0.0 * NM || self.dist2(&ri, &rj).1 <= cutoff2)
+        //         .map(|((i, _), (j, _))| (i.clone(), vec![j.clone()]))
+        //         .coalesce(|(p, ps), (c, cs)| {
+        //             if p == c {
+        //                 Ok((p, ps.extend(cs)))
+        //             } else {
+        //                 Err(((p, ps), (c, cs)))
+        //             }
+        //         }).collect();
+        //     println!("New pairlist has {} entries", self.pairlist.len());
+        // }
+
         pub fn calc_energy(&self) -> KilojoulePerMole<f32> {
             self.topology.calc_energy(
                 &self.positions,
@@ -153,6 +177,47 @@ pub mod state {
             let mut trajout = Trajectory::open(&self.trajout, 'a')?;
             trajout.write(&frame)?;
             Ok(())
+        }
+
+        /// Thermalize with the Bussi thermostat
+        fn thermalize(&mut self, target_temp:Kelvin<f32>, tau_t:Picosecond<f32>, delta_t:Picosecond<f32>) {
+            let kin_energy = self.velocities.iter()
+                .zip(&self.topology.atoms)
+                .fold(
+                    0.0 * KJPM,
+                    |acc, (v, atom)| acc + v.clone() * v.clone() * atom.mass/2.0
+                );
+            let n_dof = self.velocities.len() * 3 - 1;
+
+            let factor;
+            if tau_t == 0.0 * PS {
+                factor = 0.0;
+            } else {
+                factor = (-delta_t/tau_t).exp();
+            }
+
+            if factor.is_infinite() {
+                panic!("tau_t is too small!");
+            }
+
+            let kkn: Unitless<f32> = target_temp * KB * self.velocities.len() as f32 / (n_dof as f32 * kin_energy);
+
+            let mut rng = rand::thread_rng();
+            let gaussian = rand::distributions::StandardNormal;
+
+            let r1 = rng.sample(gaussian) as f32;
+
+            let sum_noises:f32 = rng
+                .sample_iter(&gaussian)
+                .take(n_dof - 1)
+                .map(|r| r as f32 * r as f32)
+                .sum();
+
+            let alpha2 = 1.0 + (1.0 - factor)*(kkn * (sum_noises + r1*r1) - 1.0) + 2.0 * r1 * (kkn * (1.0 - factor) * factor).sqrt();
+
+            let alpha:Unitless<f32> = alpha2.sqrt();
+
+            self.velocities.iter_mut().foreach(|v| *v *= alpha);
         }
 
         pub fn sample(mut self, nsteps: usize, temp: Kelvin<f32>) -> Self {
@@ -303,6 +368,8 @@ pub mod state {
                     .map(|(v, r)| {
                         r + v.clone() * dt/2.0
                     }).collect();
+
+                self.thermalize(300.0 * K, 5.0 * PS, dt);
 
 
                 // TODO: Stop assuming rectangular box
