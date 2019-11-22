@@ -1,11 +1,6 @@
 #[macro_use]
 extern crate dimensioned as dim;
 
-extern crate rand;
-extern crate itertools;
-extern crate chemfiles;
-extern crate rayon;
-
 pub mod geom;
 pub mod units;
 
@@ -32,14 +27,14 @@ mod samplers {
 }
 
 pub mod state {
-    use units::*;
-    use units::f32consts::*;
+    use crate::units::*;
+    use crate::units::f32consts::*;
 
-    use geom::{
+    use crate::geom::{
         PosVec,
         VelocVec
     };
-    use topology::Top;
+    use crate::topology::Top;
     use rand;
     use rand::Rng;
     use itertools::Itertools;
@@ -47,7 +42,7 @@ pub mod state {
     use chemfiles;
     use chemfiles::{Trajectory, Frame, Atom, UnitCell};
 
-    use dim::Sqrt;
+    use crate::dim::Sqrt;
 
     pub struct State<'a> {
         pub topology: &'a Top,
@@ -258,7 +253,7 @@ pub mod state {
                 }
 
                 let mut attempt_pos = self.positions.clone();
-                for mut pos in attempt_pos.iter_mut() {
+                for pos in attempt_pos.iter_mut() {
                     *pos += PosVec::from(
                         rng.sample(distrib) as f32,
                         rng.sample(distrib) as f32,
@@ -395,15 +390,15 @@ pub mod state {
 }
 
 pub mod topology {
-    use units::*;
-    use units::f32consts::*;
-    use geom::{
+    use crate::units::*;
+    use crate::units::f32consts::*;
+    use crate::geom::{
         PosVec,
         ForceVec
     };
     use rayon::prelude::*;
     use std;
-    use dim::Sqrt;
+    use crate::dim::Sqrt;
 
     #[derive(Debug)]
     pub struct Top {
