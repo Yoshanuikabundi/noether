@@ -2,6 +2,7 @@
 name = "noether"
 version = "0.1.0"
 authors = ["Josh Mitchell <yoshanuikabundi@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 dimensioned = "0.6.0" # MIT/Apache-2.0

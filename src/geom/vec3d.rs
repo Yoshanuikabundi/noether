@@ -13,7 +13,7 @@ use std::ops::{
     Index,
 };
 
-use dim::{
+use crate::dim::{
     Sqrt,
     Dimensioned
 };

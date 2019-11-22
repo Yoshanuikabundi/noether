@@ -1,7 +1,7 @@
 // pub mod vec3;
 pub mod vec3d;
 
-use units;
+use crate::units;
 
 pub use self::vec3d::Vec3D;
 
