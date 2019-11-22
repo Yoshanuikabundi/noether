@@ -6,3 +6,4 @@ Cargo.lock
 *.xtc
 *.nc
 \#*\#
+*.sublime-workspace
