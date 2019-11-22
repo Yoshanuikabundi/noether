@@ -5,8 +5,8 @@ authors = ["Josh Mitchell <yoshanuikabundi@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-dimensioned = "0.6.0" # MIT/Apache-2.0
-rand = "0.5.5" # MIT/Apache-2.0
-itertools = "0.7.8" # MIT/Apache-2.0
-rayon = "1.0.2" # MIT/Apache-2.0
-chemfiles = "0.8.0" # BSD-3-Clause
+uom = "0.26" # MIT/Apache-2.0
+rand = "0.7" # MIT/Apache-2.0
+rand_distr = "0.2" # MIT/Apache-2.0
+itertools = "0.8" # MIT/Apache-2.0
+chemfiles = "0.9" # BSD-3-Clause
