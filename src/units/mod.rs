@@ -17,6 +17,7 @@ system! {
         energy::Energy,
         force::Force,
         entropy::Entropy,
+        velocity::Velocity,
     }
 }
 
@@ -28,18 +29,25 @@ storage_types! {
 
     use std::marker::PhantomData;
 
-    pub const NANOMETER: Length = Length { dimension: PhantomData, units: PhantomData, value: 1.0, };
-    pub const DALTON: Mass = Mass { dimension: PhantomData, units: PhantomData, value: 1.0, };
-    pub const PICOSECOND: Time = Time { dimension: PhantomData, units: PhantomData, value: 1.0, };
-    pub const ELEMCHARGE: Charge = Charge { dimension: PhantomData, units: PhantomData, value: 1.0, };
-    pub const KELVIN: Temperature = Temperature { dimension: PhantomData, units: PhantomData, value: 1.0, };
+    pub const NANOMETER: Length = Length {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const DALTON: Mass = Mass {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const PICOSECOND: Time = Time {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const ELEMCHARGE: Charge = Charge {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const KELVIN: Temperature = Temperature {value: 1.0, dimension: PhantomData, units: PhantomData};
 
-    pub const KJPERMOL: Energy = Energy { dimension: PhantomData, units: PhantomData, value: 1.0, };
-    pub const KNPERMOL: Force = Force { dimension: PhantomData, units: PhantomData, value: 1.0, };
+    pub const KJPERMOL: Energy = Energy {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const KNPERMOL: Force = Force {value: 1.0, dimension: PhantomData, units: PhantomData};
 
+    // Following values are truncated in f32
+    #[allow(clippy::excessive_precision)]
     pub const AVOGADROS_NUMBER: V = 6.022_140_76_E23;
 
-    pub const BOLTZMANN_CONSTANT: Entropy = Entropy { dimension: PhantomData, units: PhantomData, value: 8.314_462_1_E-3, };
+    #[allow(clippy::excessive_precision)]
+    pub const BOLTZMANN_CONSTANT: Entropy = Entropy {value: 8.314_462_1_E-3, dimension: PhantomData, units: PhantomData};
+
+    // Types for positions and velocities of single frames
+    pub type Positions = Vec<[Length; 3]>;
+    pub type Velocities = Vec<[Velocity; 3]>;
 }
 
 
