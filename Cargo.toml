@@ -10,3 +10,4 @@ rand = "0.7" # MIT/Apache-2.0
 rand_distr = "0.2" # MIT/Apache-2.0
 itertools = "0.8" # MIT/Apache-2.0
 chemfiles = "0.9" # BSD-3-Clause
+more-asserts = "0.2.1" # CC0 (Public domain)

@@ -1,7 +1,10 @@
-pub mod units;
-
 #[macro_use]
 extern crate uom;
+#[macro_use]
+extern crate more_asserts;
+
+pub mod units;
+
 
 #[cfg(test)]
 mod tests {

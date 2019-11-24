@@ -70,8 +70,8 @@ quantity! {
         @calorie: 4.184_E0 / (prefix!(kilo) / 6.022_140_76_E23); "cal", "calorie", "calories";
         @kilocalorie: prefix!(kilo) * 4.184_E0 / (prefix!(kilo) / 6.022_140_76_E23); "kcal", "kilocalorie", "kilocalories";
 
-        @calorie_per_mole: 4.184_E0; "cal", "calorie", "calories";
-        @kilocalorie_per_mole: prefix!(kilo) * 4.184_E0; "kcal", "kilocalorie", "kilocalories";
+        @calorie_per_mole: 4.184_E0; "cal/mol", "calorie per mole", "calories per mole";
+        @kilocalorie_per_mole: prefix!(kilo) * 4.184_E0; "kcal/mol", "kilocalorie per mole", "kilocalories per mole";
 
         @electronvolt: 1.602_177_E-19 / (prefix!(kilo) / 6.022_140_76_E23); "eV", "electronvolt", "electronvolts";
         @erg: 1.0_E-7 / (prefix!(kilo) / 6.022_140_76_E23); "erg", "erg", "ergs";
