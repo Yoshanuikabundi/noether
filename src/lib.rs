@@ -11,8 +11,8 @@ pub mod io;
 /// Compute the LJ energy of many frames of a homogenous fluid of particles
 pub fn lj_from_positions(
     positions: Vec<units::f64::Positions>,
-    epsilon: units::f64::Energy,
     sigma: units::f64::Length,
+    epsilon: units::f64::Energy,
     cutoff: units::f64::Length,
 ) -> Vec<units::f64::Energy> {
     let mut energies = Vec::new();

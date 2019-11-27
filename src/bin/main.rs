@@ -10,19 +10,19 @@ fn main() {
 
     let energies = lj_from_positions(
         positions,
-        0.997_967_163 * KJPERMOL,
-        0.340_500_014 * NANOMETER,
+        0.3405 * NANOMETER,
+        1.0000 * KJPERMOL,
         1.2 * NANOMETER
     );
 
-    // let _energies_ref = io::read_xvg("test_targets/energy.xvg", 1);
-
-    // for (a, b) in energies.iter().zip(energies_ref.iter()) {
-    //     println!("{:?} == {:?} ?", a, b);
-    // }
-
-    for a in energies.iter() {
-        println!("{:?}", a);
+    let energies_ref = io::read_xvg("test_targets/equil.xvg", 1).unwrap();
+    for (a, b) in energies.iter().zip(energies_ref.iter()) {
+        let b: f64 = b.parse().unwrap();
+        println!("diff = {:?}", *a - (b * KJPERMOL));
     }
+
+    // for a in energies.iter() {
+    //     println!("{:?}", a);
+    // }
 
 }
