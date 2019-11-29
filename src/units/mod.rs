@@ -18,6 +18,7 @@ system! {
         force::Force,
         entropy::Entropy,
         velocity::Velocity,
+        area::Area,
     }
 }
 

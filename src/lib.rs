@@ -8,6 +8,21 @@ extern crate more_asserts;
 pub mod units;
 pub mod io;
 
+use uom::typenum::consts::*;
+
+fn lj_potential(
+    r_squared: units::f64::Area,
+    sigma: units::f64::Length,
+    epsilon: units::f64::Energy,
+    shift: units::f64::Energy,
+) -> units::f64::Energy {
+    let sigma_over_r_squared = sigma.powi(P2::new()) / r_squared;
+    let six = sigma_over_r_squared.powi(P3::new());
+    let twelve = six.powi(P2::new());
+
+    4.0 * epsilon * (twelve - six) - shift
+}
+
 /// Compute the LJ energy of many frames of a homogenous fluid of particles
 pub fn lj_from_positions(
     positions: Vec<units::f64::Positions>,
@@ -17,10 +32,8 @@ pub fn lj_from_positions(
 ) -> Vec<units::f64::Energy> {
     let mut energies = Vec::new();
 
-    let two = uom::typenum::P2::new();
-    let three = uom::typenum::P3::new();
-
     let r_max_squared = cutoff * cutoff;
+    let shift = lj_potential(cutoff.powi(P2::new()), sigma, epsilon, 0.0 * units::f64::KJPERMOL);
 
     for frame in positions {
         let mut energy = 0.0 * units::f64::KJPERMOL;
@@ -28,14 +41,11 @@ pub fn lj_from_positions(
             for (j, [x2, y2, z2]) in frame.iter().enumerate() {
                 if i == j {continue};
 
-                let r_squared = (*x2-*x1).powi(two) + (*y2-*y1).powi(two) + (*z2-*z1).powi(two);
+                let r_squared = (*x2-*x1).powi(P2::new()) + (*y2-*y1).powi(P2::new()) + (*z2-*z1).powi(P2::new());
 
-                if r_squared > r_max_squared {continue};
-
-                let sigma_over_r_squared = sigma.powi(two) / r_squared;
-                let six = sigma_over_r_squared.powi(three);
-                let twelve = six.powi(two);
-                energy += 4.0 * epsilon * (twelve - six);
+                if r_squared < r_max_squared {
+                    energy += lj_potential(r_squared, sigma, epsilon, shift);
+                };
             }
         }
         energies.push(energy);
