@@ -1,0 +1,20 @@
+integrator = steep
+nsteps = 10000
+emtol = 1e-5
+
+nstxout = 1
+nstenergy = 1
+nstcalcenergy = 1
+
+cutoff-scheme = group
+pbc = No
+
+vdwtype = cut-off
+vdw-modifier = potential-shift
+rvdw = 1.2
+rlist = 1.2
+
+coulombtype = cut-off
+rcoulomb = 1.2
+
+

@@ -1,0 +1,43 @@
+# This file was created Sat Nov 30 22:04:09 2019
+# Created by:
+#                      :-) GROMACS - gmx energy, 2019.1 (-:
+# 
+# Executable:   /usr/bin/gmx
+# Data prefix:  /usr
+# Working dir:  /home/joshmitchell/Documents/noether/test_targets/2_atoms
+# Command line:
+#   gmx energy -f 2_atoms_frommax.edr -o 2_atoms_frommax.xvg
+# gmx energy is part of G R O M A C S:
+#
+# Grunge ROck MAChoS
+#
+@    title "GROMACS Energies"
+@    xaxis  label "Time (ps)"
+@    yaxis  label "(kJ/mol)"
+@TYPE xy
+@ view 0.15, 0.15, 0.75, 0.85
+@ legend on
+@ legend box on
+@ legend loctype view
+@ legend 0.78, 0.8
+@ legend length 2
+@ s0 legend "Potential"
+    0.000000   -0.000001
+    1.000000   -0.000222
+    2.000000   -0.000525
+    3.000000   -0.000952
+    4.000000   -0.001576
+    5.000000   -0.002532
+    6.000000   -0.004089
+    7.000000   -0.006839
+    8.000000   -0.012246
+    9.000000   -0.024594
+   10.000000   -0.059583
+   11.000000   -0.195989
+   12.000000   -0.890887
+   16.000000   -0.994589
+   19.000000   -0.995749
+   21.000000   -0.997607
+   24.000000   -0.997912
+   29.000000   -0.997913
+   33.000000   -0.997913
