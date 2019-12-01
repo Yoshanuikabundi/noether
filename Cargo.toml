@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Josh Mitchell <yoshanuikabundi@gmail.com>"]
 edition = "2018"
 
+readme = "README.md"
+
 [dependencies]
 uom = "0.26" # MIT/Apache-2.0
 rand = "0.7" # MIT/Apache-2.0

@@ -30,11 +30,11 @@ storage_types! {
 
     use std::marker::PhantomData;
 
-    pub const NANOMETER: Length = Length {value: 1.0, dimension: PhantomData, units: PhantomData};
-    pub const DALTON: Mass = Mass {value: 1.0, dimension: PhantomData, units: PhantomData};
-    pub const PICOSECOND: Time = Time {value: 1.0, dimension: PhantomData, units: PhantomData};
-    pub const ELEMCHARGE: Charge = Charge {value: 1.0, dimension: PhantomData, units: PhantomData};
-    pub const KELVIN: Temperature = Temperature {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const NM: Length = Length {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const DA: Mass = Mass {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const PS: Time = Time {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const E: Charge = Charge {value: 1.0, dimension: PhantomData, units: PhantomData};
+    pub const K: Temperature = Temperature {value: 1.0, dimension: PhantomData, units: PhantomData};
 
     pub const KJPERMOL: Energy = Energy {value: 1.0, dimension: PhantomData, units: PhantomData};
     pub const KNPERMOL: Force = Force {value: 1.0, dimension: PhantomData, units: PhantomData};

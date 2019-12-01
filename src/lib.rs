@@ -7,6 +7,9 @@ extern crate more_asserts;
 
 pub mod units;
 pub mod io;
+pub mod boundaries;
+
+use boundaries::BoundaryConditions;
 
 use uom::typenum::consts::*;
 
@@ -23,31 +26,45 @@ fn lj_potential(
     4.0 * epsilon * (twelve - six) - shift
 }
 
+/// Construct a list of pairs of indices for atoms within cutoff of each other
+fn construct_pairlist(
+    positions: &[[units::f64::Length; 3]],
+    cutoff: units::f64::Length,
+    boundaries: &impl BoundaryConditions
+) -> Vec<([usize; 2], units::f64::Area)> {
+    let cutoff_squared = cutoff * cutoff;
+    let mut out = Vec::new();
+
+    for (i, a) in positions.iter().enumerate() {
+        for (j, b) in positions[i+1..].iter().enumerate() {
+            let r_squared = boundaries.dist2(*a, *b);
+
+            if r_squared < cutoff_squared {
+                out.push(([i, j], r_squared))
+            };
+        }
+    }
+    out
+}
+
 /// Compute the LJ energy of many frames of a homogenous fluid of particles
 pub fn lj_from_positions(
-    positions: Vec<units::f64::Positions>,
+    frames: &[units::f64::Positions],
     sigma: units::f64::Length,
     epsilon: units::f64::Energy,
     cutoff: units::f64::Length,
+    boundaries: &impl BoundaryConditions
 ) -> Vec<units::f64::Energy> {
     let mut energies = Vec::new();
-
-    let r_max_squared = cutoff * cutoff;
     let shift = lj_potential(cutoff.powi(P2::new()), sigma, epsilon, 0.0 * units::f64::KJPERMOL);
 
-    for frame in positions {
+    for frame in frames {
         let mut energy = 0.0 * units::f64::KJPERMOL;
-        for (i, [x1, y1, z1]) in frame.iter().enumerate() {
-            for (j, [x2, y2, z2]) in frame.iter().enumerate() {
-                if i == j {continue};
 
-                let r_squared = (*x2-*x1).powi(P2::new()) + (*y2-*y1).powi(P2::new()) + (*z2-*z1).powi(P2::new());
-
-                if r_squared < r_max_squared {
-                    energy += lj_potential(r_squared, sigma, epsilon, shift);
-                };
-            }
+        for ([_i, _j], r_squared) in construct_pairlist(frame, cutoff, boundaries) {
+            energy += lj_potential(r_squared, sigma, epsilon, shift);
         }
+
         energies.push(energy);
     }
 
