@@ -64,9 +64,9 @@ mod unit_ratio_tests {
             meter
         };
 
-        assert_lt!((1.0 * NANOMETER - Length::new::<nanometer>(1.0)).abs(), 1e-200 * NANOMETER);
-        assert_lt!((1.0 * NANOMETER - Length::new::<angstrom>(10.0)).abs(), 1e-15 * NANOMETER);
-        assert_lt!((1.0 * NANOMETER - Length::new::<meter>(1e-9)).abs(), 1e-15 * NANOMETER);
+        assert_lt!((1.0 * NM - Length::new::<nanometer>(1.0)).abs(), 1e-200 * NM);
+        assert_lt!((1.0 * NM - Length::new::<angstrom>(10.0)).abs(), 1e-15 * NM);
+        assert_lt!((1.0 * NM - Length::new::<meter>(1e-9)).abs(), 1e-15 * NM);
     }
 
     #[test]
@@ -78,10 +78,10 @@ mod unit_ratio_tests {
             kilogram
         };
 
-        assert_lt!((1.0 * DALTON - Mass::new::<dalton>(1.0)).abs(), 1e-200 * DALTON);
-        assert_lt!((1.0 * DALTON - Mass::new::<amu>(1.0)).abs(), 1e-200 * DALTON);
-        assert_lt!((1.0 * DALTON - (Mass::new::<gram>(1.0) / AVOGADROS_NUMBER)).abs(), 1e-200 * DALTON);
-        assert_lt!((1.0 * DALTON - Mass::new::<kilogram>( 1.660_539_066_60_E-27)).abs(), 1e-9 * DALTON);
+        assert_lt!((1.0 * DA - Mass::new::<dalton>(1.0)).abs(), 1e-200 * DA);
+        assert_lt!((1.0 * DA - Mass::new::<amu>(1.0)).abs(), 1e-200 * DA);
+        assert_lt!((1.0 * DA - (Mass::new::<gram>(1.0) / AVOGADROS_NUMBER)).abs(), 1e-200 * DA);
+        assert_lt!((1.0 * DA - Mass::new::<kilogram>( 1.660_539_066_60_E-27)).abs(), 1e-9 * DA);
 
     }
 
@@ -96,12 +96,12 @@ mod unit_ratio_tests {
             year
         };
 
-        assert_lt!((1.0 * PICOSECOND - Time::new::<picosecond>(1.0)).abs(), 1e-200 * PICOSECOND);
-        assert_lt!((1.0 * PICOSECOND - Time::new::<second>(1e-12)).abs(), 1e-15 * PICOSECOND);
-        assert_lt!((Time::new::<second>(60.0) - Time::new::<minute>(1.0)).abs(), 1e-15 * PICOSECOND);
-        assert_lt!((Time::new::<minute>(60.0) - Time::new::<hour>(1.0)).abs(), 1e-15 * PICOSECOND);
-        assert_lt!((Time::new::<hour>(24.0) - Time::new::<day>(1.0)).abs(), 1e-15 * PICOSECOND);
-        assert_lt!((Time::new::<day>(365.0) - Time::new::<year>(1.0)).abs(), 1e-15 * PICOSECOND);
+        assert_lt!((1.0 * PS - Time::new::<picosecond>(1.0)).abs(), 1e-200 * PS);
+        assert_lt!((1.0 * PS - Time::new::<second>(1e-12)).abs(), 1e-15 * PS);
+        assert_lt!((Time::new::<second>(60.0) - Time::new::<minute>(1.0)).abs(), 1e-15 * PS);
+        assert_lt!((Time::new::<minute>(60.0) - Time::new::<hour>(1.0)).abs(), 1e-15 * PS);
+        assert_lt!((Time::new::<hour>(24.0) - Time::new::<day>(1.0)).abs(), 1e-15 * PS);
+        assert_lt!((Time::new::<day>(365.0) - Time::new::<year>(1.0)).abs(), 1e-15 * PS);
     }
 
     #[test]
@@ -111,8 +111,8 @@ mod unit_ratio_tests {
             coulomb
         };
 
-        assert_lt!((1.0 * ELEMCHARGE - Charge::new::<elementary_charge>(1.0)).abs(), 1e-200 * ELEMCHARGE);
-        assert_lt!((1.0 * ELEMCHARGE - Charge::new::<coulomb>(1.602_176_62_E-19)).abs(), 1e-200 * ELEMCHARGE);
+        assert_lt!((1.0 * E - Charge::new::<elementary_charge>(1.0)).abs(), 1e-200 * E);
+        assert_lt!((1.0 * E - Charge::new::<coulomb>(1.602_176_62_E-19)).abs(), 1e-200 * E);
     }
 
     #[test]
@@ -122,8 +122,8 @@ mod unit_ratio_tests {
             microkelvin
         };
 
-        assert_lt!((1.0 * KELVIN - Temperature::new::<kelvin>(1.0)).abs(), 1e-200 * KELVIN);
-        assert_lt!((1.0 * KELVIN - Temperature::new::<microkelvin>(1.0E6)).abs(), 1e-200 * KELVIN);
+        assert_lt!((1.0 * K - Temperature::new::<kelvin>(1.0)).abs(), 1e-200 * K);
+        assert_lt!((1.0 * K - Temperature::new::<microkelvin>(1.0E6)).abs(), 1e-200 * K);
     }
 
     #[test]

@@ -11,8 +11,8 @@ fn main() {
 
     let energies = lj_from_positions(
         &positions,
-        0.3405 * NM,
-        1.0000 * KJPERMOL,
+        &[0.3405 * NM; 2],
+        &[1.0000 * KJPERMOL; 2],
         1.2 * NM,
         &NoBounds,
     );
@@ -28,8 +28,8 @@ fn main() {
 
     let energies = lj_from_positions(
         &positions,
-        0.3405 * NM,
-        1.0000 * KJPERMOL,
+        &[0.3405 * NM; 100],
+        &[1.0000 * KJPERMOL; 100],
         1.2 * NM,
         &Pbc::cubic(5.0*NM),
     );

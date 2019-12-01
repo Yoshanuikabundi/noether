@@ -6,6 +6,15 @@ edition = "2018"
 
 readme = "README.md"
 
+[profile.dev]
+opt-level = 3
+
+[profile.test]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+
 [dependencies]
 uom = "0.26" # MIT/Apache-2.0
 rand = "0.7" # MIT/Apache-2.0
