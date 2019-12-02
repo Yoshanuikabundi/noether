@@ -112,7 +112,7 @@ impl BoundaryConditions for Pbc {
         let [x1, y1, z1] = a;
         let [x2, y2, z2] = b;
 
-        let Pbc([xi, yi, zi], [xj, yj, zj], [xk, yk, zk]) = self;
+        let Pbc([xi, yi, zi], [xj, yj, zj], [xk, yk, zk]) = *self;
 
         let mut min = std::f64::INFINITY * f64::NM * f64::NM;
 
@@ -120,9 +120,9 @@ impl BoundaryConditions for Pbc {
             for &j in &[-1.0, 0.0, 1.0] {
                 for &k in &[-1.0, 0.0, 1.0] {
                     min = min.min(
-                        (x2 - x1 + i * *xi + j * *xj + k * *xk).powi(P2::new())
-                        + (y2 - y1 + i * *yi + j * *yj + k * *yk).powi(P2::new())
-                        + (z2 - z1 + i * *zi + j * *zj + k * *zk).powi(P2::new())
+                        (x2 - x1 + i*xi + j*xj + k*xk).powi(P2::new())
+                        + (y2 - y1 + i*yi + j*yj + k*yk).powi(P2::new())
+                        + (z2 - z1 + i*zi + j*zj + k*zk).powi(P2::new())
                     );
                 }
             }
