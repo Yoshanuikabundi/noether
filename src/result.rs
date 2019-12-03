@@ -21,6 +21,9 @@ pub enum Error {
 }
 
 impl Error {
+    /// Convert an error variant to its own name
+    ///
+    /// Used to point users to documentation
     fn get_variant_str(&self) -> &'static str{
         match self {
             MinimumImageConventionNotJustified => "MinimumImageConventionNotJustified",
@@ -28,6 +31,7 @@ impl Error {
         }
     }
 
+    /// Get a brief description for an error
     fn get_description_str(&self) -> String {
         match self {
             MinimumImageConventionNotJustified => concat!(
@@ -70,3 +74,24 @@ pub use Error::*;
 
 /// Result type for this module
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub trait FriendlyResult {
+    type Value;
+
+    fn unwrap_nicely(self) -> Self::Value;
+}
+
+impl<T> FriendlyResult for Result<T> {
+    type Value = T;
+    fn unwrap_nicely(self) -> Self::Value {
+        match self {
+            Ok(v) => v,
+            Err(e) => {
+                println!("-----------------------");
+                e.explain();
+                println!("-----------------------");
+                panic!();
+            }
+        }
+    }
+}

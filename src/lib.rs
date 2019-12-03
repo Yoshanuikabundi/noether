@@ -18,6 +18,7 @@ pub mod boundaries;
 /// Error handling for this crate
 pub mod result;
 use result::*;
+pub use result::FriendlyResult;
 
 use boundaries::BoundaryConditions;
 
