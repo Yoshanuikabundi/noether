@@ -54,7 +54,7 @@ pub fn read_xvg<P: AsRef<Path>>(path: P, column: usize) -> Result<Vec<String>, i
 /// # Arguments
 ///
 ///  * `path` - Path to the trajectory file. May be in any format Chemfiles can read
-pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Positions>, io::Error> {
+pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<[Length; 3]>>, io::Error> {
     read_frames(path, &Frame::positions, &Length::new::<angstrom>)
 }
 
@@ -65,7 +65,7 @@ pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Positions>, io::Err
 /// # Arguments
 ///
 ///  * `path` - Path to the trajectory file. May be in any format Chemfiles can read
-pub fn read_velocities<P: AsRef<Path>>(path: P) -> Result<Vec<Velocities>, io::Error> {
+pub fn read_velocities<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<[Velocity; 3]>>, io::Error> {
     read_frames(path, &Frame::velocities, &Velocity::new::<angstrom_per_picosecond>)
 }
 
@@ -96,6 +96,8 @@ fn read_frame<D: ?Sized, U: ?Sized, V>(
         .collect()
 }
 
+type TrajectoryProperties<D, U, V> = Vec<Vec<[Quantity<D, U, V>; 3]>>;
+
 /// Reads some property of all frames into a vector from a trajectory file in any format supported by chemfile
 ///
 /// # Arguments
@@ -107,7 +109,7 @@ fn read_frames<P: AsRef<Path>, D: ?Sized, U: ?Sized, V>(
     path: P,
     prop_func: &dyn Fn(&Frame) -> &[[V; 3]],
     unit_constructor: &dyn Fn(V) -> Quantity<D, U, V>
-    ) -> Result<Vec<Vec<[Quantity<D, U, V>; 3]>>, io::Error>
+    ) -> Result<TrajectoryProperties<D, U, V>, io::Error>
     where
         D: crate::units::Dimension,
         U: crate::units::Units<V>,
@@ -141,12 +143,7 @@ fn read_frames<P: AsRef<Path>, D: ?Sized, U: ?Sized, V>(
         Err(_) => {
             let mut props = Vec::new();
 
-            loop {
-                match traj.read(&mut frame) {
-                    Ok(()) => (),
-                    Err(_) => break,
-                };
-
+            while let Ok(_) = traj.read(&mut frame) {
                 props.push(read_frame(&frame, prop_func, unit_constructor));
             }
             Ok(props)

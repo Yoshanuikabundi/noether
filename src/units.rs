@@ -1,3 +1,6 @@
+#![allow(clippy::excessive_precision, clippy::eq_op)]
+
+
 system! {
     quantities: Q {
         length: nanometer, L;
@@ -40,15 +43,9 @@ storage_types! {
     pub const KNPERMOL: Force = Force {value: 1.0, dimension: PhantomData, units: PhantomData};
 
     // Following values are truncated in f32
-    #[allow(clippy::excessive_precision)]
     pub const AVOGADROS_NUMBER: V = 6.022_140_76_E23;
 
-    #[allow(clippy::excessive_precision)]
     pub const BOLTZMANN_CONSTANT: Entropy = Entropy {value: 8.314_462_1_E-3, dimension: PhantomData, units: PhantomData};
-
-    // Types for positions and velocities of single frames
-    pub type Positions = Vec<[Length; 3]>;
-    pub type Velocities = Vec<[Velocity; 3]>;
 }
 
 

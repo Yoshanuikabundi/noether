@@ -7,6 +7,7 @@ extern crate more_asserts;
 
 /// Keep our units straight (Based on `uom` crate)
 pub mod units;
+use units::f64;
 
 /// Read from and write to disk
 pub mod io;
@@ -14,9 +15,16 @@ pub mod io;
 /// Store a simulation's boundary conditions and perform relevant calculations (eg, distances)
 pub mod boundaries;
 
+/// Error handling for this crate
+pub mod result;
+use result::*;
+
 use boundaries::BoundaryConditions;
 
 use uom::typenum::consts::*;
+
+/// Current version of noether
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Compute the LJ potential of a pair of atoms
 ///
@@ -29,10 +37,10 @@ use uom::typenum::consts::*;
 /// * `epsilon: Energy`: Depth of potential well ($\epsilon$)
 #[inline]
 pub fn lj_potential(
-    r_squared: units::f64::Area,
-    sigma_squared: units::f64::Area,
-    epsilon: units::f64::Energy
-) -> units::f64::Energy {
+    r_squared: f64::Area,
+    sigma_squared: f64::Area,
+    epsilon: f64::Energy
+) -> f64::Energy {
     let six = (sigma_squared / r_squared).powi(P3::new());
     let twelve = six.powi(P2::new());
 
@@ -55,27 +63,27 @@ pub fn lj_potential(
 /// * `cutoff`: The cutoff beyond which the potential is zero. Potential is shifted by a constant $V_\mathrm{cutoff}$ to be zero at this distance.
 /// * `boundaries`: Boundary conditions; determines how distance is calculated
 pub fn lj_from_positions(
-    frames: &[units::f64::Positions],
-    sigmas: &[units::f64::Length],
-    epsilons: &[units::f64::Energy],
-    cutoff: units::f64::Length,
+    frames: &[Vec<[f64::Length; 3]>],
+    sigmas: &[f64::Length],
+    epsilons: &[f64::Energy],
+    cutoff: f64::Length,
     boundaries: &impl BoundaryConditions
-) -> Vec<units::f64::Energy> {
+) -> Result<Vec<f64::Energy>> {
     if sigmas.len() != epsilons.len() {
-        panic!("lj_from_positions requires equal numbers of sigmas and epsilons")
+        return Err(ValueError("lj_from_positions requires equal numbers of sigmas and epsilons"));
     }
 
     let mut energies = Vec::new();
     let cutoff_squared = cutoff.powi(P2::new());
 
     for frame in frames {
-        let mut energy = 0.0 * units::f64::KJPERMOL;
+        let mut energy = 0.0 * f64::KJPERMOL;
 
         if frame.len() != sigmas.len() {
-            panic!("lj_from_positions requires frames with equal numbers of atoms to sigmas and epsilons")
+            return Err(ValueError("lj_from_positions requires frames with equal numbers of atoms to sigmas and epsilons"));
         }
 
-        for ([i, j], r_squared) in boundaries.construct_pairlist(frame, cutoff) {
+        for ([i, j], r_squared) in boundaries.construct_pairlist(frame, cutoff)? {
             let sigma_squared = sigmas[i] * sigmas[j];
             let epsilon = (epsilons[i] * epsilons[j]).sqrt();
 
@@ -85,7 +93,7 @@ pub fn lj_from_positions(
         energies.push(energy);
     }
 
-    energies
+    Ok(energies)
 }
 
 #[cfg(test)]
@@ -108,7 +116,7 @@ mod tests {
             &[1.0000 * KJPERMOL; 2],
             1.2 * NM,
             &NoBounds,
-        );
+        ).unwrap();
 
         let energies_ref = io::read_xvg(
             "test_targets/2_atoms/2_atoms_frommax.xvg",
@@ -132,7 +140,7 @@ mod tests {
             &[1.0000 * KJPERMOL; 100],
             1.2 * NM,
             &Pbc::cubic(5.0*NM),
-        );
+        ).unwrap();
 
         let energies_ref = io::read_xvg(
             "test_targets/100_atoms/100_atoms.xvg",

@@ -1,4 +1,5 @@
 use crate::units::f64;
+use crate::result::*;
 
 use uom::typenum::consts::P2;
 
@@ -53,6 +54,14 @@ pub trait BoundaryConditions {
          + (z2 - z1).powi(P2::new())
     }
 
+    fn pairlist_checks(
+        &self,
+        _positions: &[[f64::Length; 3]],
+        _cutoff: f64::Length
+    ) -> Result<()> {
+        Ok(())
+    }
+
     /// Construct a list of pairs of indices for atoms within cutoff of each other
     ///
     /// # Arguments
@@ -63,7 +72,9 @@ pub trait BoundaryConditions {
         &self,
         positions: &[[f64::Length; 3]],
         cutoff: f64::Length
-    ) -> Vec<([usize; 2], f64::Area)> {
+    ) -> Result<Vec<([usize; 2], f64::Area)>> {
+        self.pairlist_checks(positions, cutoff)?;
+
         let cutoff_squared = cutoff * cutoff;
         let mut out = Vec::new();
 
@@ -76,7 +87,7 @@ pub trait BoundaryConditions {
                 };
             }
         }
-        out
+        Ok(out)
     }
 
 }
@@ -185,5 +196,31 @@ impl BoundaryConditions for Pbc {
         }
 
         min
+    }
+
+    fn pairlist_checks(
+        &self,
+        _positions: &[[f64::Length; 3]],
+        cutoff: f64::Length
+    ) -> Result<()> {
+        let Pbc(a, b, c) = *self;
+
+        let smallest_box_length = [a, b, c]
+            .iter()
+            .map(|[x, y, z]| (
+                x.powi(P2::new())
+                + y.powi(P2::new())
+                + z.powi(P2::new())
+            ).sqrt())
+            .fold(
+                std::f64::INFINITY * f64::NM,
+                |min, x| if min <= x {min} else {x}
+            );
+
+        if cutoff < smallest_box_length {
+            Ok(())
+         } else {
+            Err(MinimumImageConventionNotJustified)
+         }
     }
 }
