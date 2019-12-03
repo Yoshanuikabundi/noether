@@ -1,5 +1,7 @@
+use crate::units::velocity::angstrom_per_picosecond;
 use crate::units::length::angstrom;
 use crate::units::f64::*;
+use crate::units::Quantity;
 
 use chemfiles::{Trajectory, Frame};
 
@@ -41,33 +43,85 @@ pub fn read_xvg<P: AsRef<Path>>(path: P, column: usize) -> Result<Vec<String>, i
 }
 
 /// Reads positions into a vector from a file in any format supported by chemfile
+/// I assume here that chemfiles reliably produces angstrom units
 pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Positions>, io::Error> {
-    let mut pos = Vec::new();
-    let mut frame = Frame::new();
+    read_frames(path, &Frame::positions, &Length::new::<angstrom>)
+}
 
+/// Reads velocities into a vector from a file in any format supported by chemfile
+/// I assume here that chemfiles reliably produces angstrom per picosecond units
+pub fn read_velocities<P: AsRef<Path>>(path: P) -> Result<Vec<Velocities>, io::Error> {
+    read_frames(path, &Frame::velocities, &Velocity::new::<angstrom_per_picosecond>)
+}
+
+/// Read a property from a frame into a vector with units
+fn read_frame<D: ?Sized, U: ?Sized, V>(
+    frame: &Frame,
+    prop_func: &dyn Fn(&chemfiles::Frame) -> &[[V; 3]],
+    unit_constructor: &dyn Fn(V) -> Quantity<D, U, V>
+    ) -> Vec<[Quantity<D, U, V>; 3]>
+    where
+        D: crate::units::Dimension,
+        U: crate::units::Units<V>,
+        V: uom::num_traits::Num + uom::Conversion<V> + Copy
+{
+    prop_func(&frame)
+        .iter()
+        .map(|&[x, y, z]| [
+            unit_constructor(x),
+            unit_constructor(y),
+            unit_constructor(z)
+        ])
+        .collect()
+}
+
+/// Reads some property of all frames into a vector from a trajectory file in any format supported by chemfile
+fn read_frames<P: AsRef<Path>, D: ?Sized, U: ?Sized, V>(
+    path: P,
+    prop_func: &dyn Fn(&Frame) -> &[[V; 3]],
+    unit_constructor: &dyn Fn(V) -> Quantity<D, U, V>
+    ) -> Result<Vec<Vec<[Quantity<D, U, V>; 3]>>, io::Error>
+    where
+        D: crate::units::Dimension,
+        U: crate::units::Units<V>,
+        V: uom::num_traits::Num + uom::Conversion<V> + Copy
+{
+    // Open the trajectory file
     let mut traj = match Trajectory::open(path, 'r') {
         Err(_) => return custom_error("File could not be opened"),
         Ok(traj) => traj,
     };
 
-    loop {
-        match traj.read(&mut frame) {
-            Ok(()) => (),
-            Err(_) => break,
-        }
+    // Create a frame object to read with
+    let mut frame = Frame::new();
+    match traj.nsteps() {
+        // If trajectory has a known number of steps, iterate over them
+        Ok(n) => {
+            let mut pos = Vec::with_capacity(n as usize);
+            for _ in 0..n {
+                match traj.read(&mut frame) { // Only this function has access to traj, so we can safely use read
+                    Ok(()) => (),
+                    Err(_) => return custom_error("Read failed in middle of trajectory"),
+                };
 
-        pos.push(
-            frame
-                .positions()
-                .iter()
-                .map(|x| [
-                    Length::new::<angstrom>(x[0]),
-                    Length::new::<angstrom>(x[1]),
-                    Length::new::<angstrom>(x[2])
-                ])
-                .collect()
-        )
+                pos.push(read_frame(&frame, prop_func, unit_constructor));
+            }
+            Ok(pos)
+        },
+        // Otherwise, iteratively read from the trajectory until it errs
+        Err(_) => {
+            let mut pos = Vec::new();
+
+            loop {
+                match traj.read(&mut frame) {
+                    Ok(()) => (),
+                    Err(_) => break,
+                };
+
+                pos.push(read_frame(&frame, prop_func, unit_constructor));
+            }
+            Ok(pos)
+        }
     }
 
-    Ok(pos)
 }
