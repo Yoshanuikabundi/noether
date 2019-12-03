@@ -2,9 +2,30 @@ use crate::units::f64;
 
 use uom::typenum::consts::P2;
 
-
+/// Boundary conditions of a simulation
+///
+/// Implements distance computations and probably more in the future
 pub trait BoundaryConditions {
     /// Compute the distance between two points given the boundary conditions
+    ///
+    /// # Arguments
+    ///
+    /// * `a` - the first point
+    /// * `b` - the second point
+    ///
+    /// # Examples
+    ///
+    /// The default implementation is just the square root of the squared distance.
+    ///
+    /// ```
+    /// # use noether::units::f64;
+    /// # let a = [1.2*f64::NM, 1.8*f64::NM, 1.1*f64::NM];
+    /// # let b = [4.8*f64::NM, 1.2*f64::NM, 3.3*f64::NM];
+    /// # let boundary_conditions = noether::boundaries::NoBounds;
+    /// # use noether::boundaries::BoundaryConditions;
+    /// #
+    /// assert_eq!(boundary_conditions.dist2(a, b).sqrt(), boundary_conditions.dist(a, b))
+    /// ```
     fn dist(
         &self,
         a: [f64::Length; 3],
@@ -14,19 +35,11 @@ pub trait BoundaryConditions {
     }
 
     /// Compute the squared distance between two points given the boundary conditions
-    fn dist2(
-        &self,
-        a: [f64::Length; 3],
-        b: [f64::Length; 3],
-    ) -> f64::Area;
-
-}
-
-pub struct NoBounds;
-
-impl BoundaryConditions for NoBounds {
-
-    /// Compute the squared distance between two points
+    ///
+    /// # Arguments
+    ///
+    /// * `a` - the first point
+    /// * `b` - the second point
     fn dist2(
         &self,
         a: [f64::Length; 3],
@@ -39,19 +52,58 @@ impl BoundaryConditions for NoBounds {
          + (y2 - y1).powi(P2::new())
          + (z2 - z1).powi(P2::new())
     }
+
+    /// Construct a list of pairs of indices for atoms within cutoff of each other
+    ///
+    /// # Arguments
+    ///
+    /// * `positions` - Positions of the atoms to construct the pairlist for
+    /// * `cutoff` - The cutoff distance beyond which pairs are excluded
+    fn construct_pairlist(
+        &self,
+        positions: &[[f64::Length; 3]],
+        cutoff: f64::Length
+    ) -> Vec<([usize; 2], f64::Area)> {
+        let cutoff_squared = cutoff * cutoff;
+        let mut out = Vec::new();
+
+        for (i, a) in positions.iter().enumerate() {
+            for (j, b) in positions[i+1..].iter().enumerate() {
+                let r_squared = self.dist2(*a, *b);
+
+                if r_squared < cutoff_squared {
+                    out.push(([i, j], r_squared))
+                };
+            }
+        }
+        out
+    }
+
 }
 
+/// No boundary conditions
+///
+/// Particles are in an infinite box
+pub struct NoBounds;
+
+impl BoundaryConditions for NoBounds {}
+
+/// Periodic boundary conditions
+///
+/// Particles are in a triclinic box that neighbours itself ad infinitum.
+/// Distances are calculated with the minimum image convention. Boxes are
+/// stored as box vectors.
 pub struct Pbc(
-    [f64::Length; 3],
-    [f64::Length; 3],
-    [f64::Length; 3]
+    pub [f64::Length; 3],
+    pub [f64::Length; 3],
+    pub [f64::Length; 3]
 );
 
 impl Pbc {
 
-    /// Create a cubic box with side length d
+    /// Create a cubic box with side length $d$
     ///
-    /// The volume is d^3
+    /// The volume is $d^3$
     pub fn cubic(d: f64::Length) -> Self {
         Pbc(
             [          d, 0.0*f64::NM, 0.0*f64::NM],
@@ -59,9 +111,9 @@ impl Pbc {
             [0.0*f64::NM, 0.0*f64::NM,           d])
     }
 
-    /// Create a cubic box with side lengths l, w and h
+    /// Create a rectangular box with side lengths $l$, $w$ and $h$
     ///
-    /// The volume is lwh
+    /// The volume is $l w h$
     pub fn rectangular(
         l: f64::Length,
         w: f64::Length,
@@ -74,9 +126,9 @@ impl Pbc {
         )
     }
 
-    /// Create a rhombic dodecahedral box with a square in the xy-plane
+    /// Create a rhombic dodecahedral box with a square in the $xy$-plane
     ///
-    /// The volume is ~0.707 d^3
+    /// The volume is $\frac{1}{2} \sqrt{2} d^3 \approx 0.707 d^3$
     pub fn rhombic_dodecahedral_xysquare(
         d: f64::Length
     ) -> Self {
@@ -87,9 +139,9 @@ impl Pbc {
         )
     }
 
-    /// Create a rhombic dodecahedral box with a hexagon in the xy-plane
+    /// Create a rhombic dodecahedral box with a hexagon in the $xy$-plane
     ///
-    /// The volume is ~0.707 d^3
+    /// The volume is $\frac{1}{2} \sqrt{2} d^3 \approx 0.707 d^3$
     pub fn rhombic_dodecahedral_xyhex(
         d: f64::Length
     ) -> Self {
@@ -103,7 +155,7 @@ impl Pbc {
 
 impl BoundaryConditions for Pbc {
 
-    /// Compute the minimum squared image distance between two points
+    /// Compute the squared distance between two points with the minimum image convention
     fn dist2(
         &self,
         a: [f64::Length; 3],
@@ -116,13 +168,17 @@ impl BoundaryConditions for Pbc {
 
         let mut min = std::f64::INFINITY * f64::NM * f64::NM;
 
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let dz = z2 - z1;
+
         for &i in &[-1.0, 0.0, 1.0] {
             for &j in &[-1.0, 0.0, 1.0] {
                 for &k in &[-1.0, 0.0, 1.0] {
                     min = min.min(
-                        (x2 - x1 + i*xi + j*xj + k*xk).powi(P2::new())
-                        + (y2 - y1 + i*yi + j*yj + k*yk).powi(P2::new())
-                        + (z2 - z1 + i*zi + j*zj + k*zk).powi(P2::new())
+                        (dx + i*xi + j*xj + k*xk).powi(P2::new())
+                        + (dy + i*yi + j*yj + k*yk).powi(P2::new())
+                        + (dz + i*zi + j*zj + k*zk).powi(P2::new())
                     );
                 }
             }

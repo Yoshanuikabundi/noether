@@ -19,6 +19,11 @@ fn custom_error<T>(message: &str) -> Result<T, io::Error> {
 /// Reads a column from an xvg file on disk into a vector
 ///
 /// Does not perform any numeric interpretation.
+///
+/// # Arguments
+///
+///  * `path` - Path to the xvg file
+///  * `column` - Which column of the xvg file to collect
 pub fn read_xvg<P: AsRef<Path>>(path: P, column: usize) -> Result<Vec<String>, io::Error> {
     let file = File::open(path)?;
     let reader = io::BufReader::new(file);
@@ -45,6 +50,10 @@ pub fn read_xvg<P: AsRef<Path>>(path: P, column: usize) -> Result<Vec<String>, i
 /// Reads positions into a vector from a file in any format supported by chemfile
 ///
 /// I assume here that chemfiles reliably produces angstrom units
+///
+/// # Arguments
+///
+///  * `path` - Path to the trajectory file. May be in any format Chemfiles can read
 pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Positions>, io::Error> {
     read_frames(path, &Frame::positions, &Length::new::<angstrom>)
 }
@@ -52,11 +61,21 @@ pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Positions>, io::Err
 /// Reads velocities into a vector from a file in any format supported by chemfile
 ///
 /// I assume here that chemfiles reliably produces angstrom per picosecond units
+///
+/// # Arguments
+///
+///  * `path` - Path to the trajectory file. May be in any format Chemfiles can read
 pub fn read_velocities<P: AsRef<Path>>(path: P) -> Result<Vec<Velocities>, io::Error> {
     read_frames(path, &Frame::velocities, &Velocity::new::<angstrom_per_picosecond>)
 }
 
-/// Read a property from a frame into a vector with units
+/// Read a property from each atom in a frame into a vector with units
+///
+/// # Arguments
+///
+///  * `frame` - The frame to read from
+///  * `prop_func` - Function to read from atoms in the frame
+///  * `unit_constructor` - Constructor for a Quantity with the appropriate units
 fn read_frame<D: ?Sized, U: ?Sized, V>(
     frame: &Frame,
     prop_func: &dyn Fn(&chemfiles::Frame) -> &[[V; 3]],
@@ -78,6 +97,12 @@ fn read_frame<D: ?Sized, U: ?Sized, V>(
 }
 
 /// Reads some property of all frames into a vector from a trajectory file in any format supported by chemfile
+///
+/// # Arguments
+///
+///  * `frame` - Path to the trajectory file. May be in any format Chemfiles can read
+///  * `prop_func` - Function to read from the frames in the trajectory
+///  * `unit_constructor` - Constructor for a Quantity with the appropriate units
 fn read_frames<P: AsRef<Path>, D: ?Sized, U: ?Sized, V>(
     path: P,
     prop_func: &dyn Fn(&Frame) -> &[[V; 3]],
