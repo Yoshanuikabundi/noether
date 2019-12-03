@@ -43,12 +43,14 @@ pub fn read_xvg<P: AsRef<Path>>(path: P, column: usize) -> Result<Vec<String>, i
 }
 
 /// Reads positions into a vector from a file in any format supported by chemfile
+///
 /// I assume here that chemfiles reliably produces angstrom units
 pub fn read_positions<P: AsRef<Path>>(path: P) -> Result<Vec<Positions>, io::Error> {
     read_frames(path, &Frame::positions, &Length::new::<angstrom>)
 }
 
 /// Reads velocities into a vector from a file in any format supported by chemfile
+///
 /// I assume here that chemfiles reliably produces angstrom per picosecond units
 pub fn read_velocities<P: AsRef<Path>>(path: P) -> Result<Vec<Velocities>, io::Error> {
     read_frames(path, &Frame::velocities, &Velocity::new::<angstrom_per_picosecond>)
@@ -94,23 +96,25 @@ fn read_frames<P: AsRef<Path>, D: ?Sized, U: ?Sized, V>(
 
     // Create a frame object to read with
     let mut frame = Frame::new();
+    // Read the values into a vector and return it
     match traj.nsteps() {
         // If trajectory has a known number of steps, iterate over them
         Ok(n) => {
-            let mut pos = Vec::with_capacity(n as usize);
+            let mut props = Vec::with_capacity(n as usize);
+
             for _ in 0..n {
                 match traj.read(&mut frame) { // Only this function has access to traj, so we can safely use read
                     Ok(()) => (),
                     Err(_) => return custom_error("Read failed in middle of trajectory"),
                 };
 
-                pos.push(read_frame(&frame, prop_func, unit_constructor));
+                props.push(read_frame(&frame, prop_func, unit_constructor));
             }
-            Ok(pos)
+            Ok(props)
         },
         // Otherwise, iteratively read from the trajectory until it errs
         Err(_) => {
-            let mut pos = Vec::new();
+            let mut props = Vec::new();
 
             loop {
                 match traj.read(&mut frame) {
@@ -118,9 +122,9 @@ fn read_frames<P: AsRef<Path>, D: ?Sized, U: ?Sized, V>(
                     Err(_) => break,
                 };
 
-                pos.push(read_frame(&frame, prop_func, unit_constructor));
+                props.push(read_frame(&frame, prop_func, unit_constructor));
             }
-            Ok(pos)
+            Ok(props)
         }
     }
 
