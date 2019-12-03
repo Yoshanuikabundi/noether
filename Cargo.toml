@@ -22,3 +22,13 @@ rand_distr = "0.2" # MIT/Apache-2.0
 itertools = "0.8" # MIT/Apache-2.0
 chemfiles = "0.9" # BSD-3-Clause
 more-asserts = "0.2.1" # CC0 (Public domain)
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "minimum_image_convention"
+harness = false
+
+[package.metadata.docs.rs]
+rustdoc-args = [ "--html-in-header", ".cargo/katex.html" ]
