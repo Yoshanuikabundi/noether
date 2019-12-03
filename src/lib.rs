@@ -15,6 +15,11 @@ pub mod io;
 /// Store a simulation's boundary conditions and perform relevant calculations (eg, distances)
 pub mod boundaries;
 
+/// Store the topology of a simulation
+///
+/// This module has to be super-optimized and follows an ECS-style layout
+pub mod topology;
+
 /// Error handling for this crate
 pub mod result;
 use result::*;
