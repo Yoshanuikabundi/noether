@@ -15,6 +15,17 @@ pub enum Error {
     /// Error variant when attempting to create an illegal topology.
     IllegalTopology,
 
+    /// Error variant when a topology has potentials with different
+    /// cutoffs
+    InconsistentCutoffs,
+
+    /// Error variant when a cutoff is required but not present
+    CutoffRequired,
+
+    /// Error variant when a topology doesn't match positions passed
+    /// to it for force or potential calculations
+    PositionTopologyMismatch,
+
     /// Error variant for illegal combinations of function arguments.
     ///
     /// The goal should be to eventually refactor to remove this form
@@ -34,6 +45,9 @@ impl Error {
             MinimumImageConventionNotJustified => "MinimumImageConventionNotJustified",
             ValueError(_) => "ValueError",
             IllegalTopology => "IllegalTopology",
+            CutoffRequired => "CutoffRequired",
+            InconsistentCutoffs => "InconsistentCutoffs",
+            PositionTopologyMismatch => "PositionTopologyMismatch"
         }
     }
 
@@ -45,6 +59,15 @@ impl Error {
                 "Make the cutoff smaller or the box bigger."
             ).to_string(),
             IllegalTopology => "Atom mismatch in proposed topology".to_string(),
+            CutoffRequired => "Cutoff required but not found".to_string(),
+            InconsistentCutoffs => concat!(
+                "All potentials in a topology must have ",
+                "the same cutoff or no cutoff"
+            ).to_string(),
+            PositionTopologyMismatch => concat!(
+                "Number of atom positions does not match number of ",
+                "atoms in topology"
+            ).to_string(),
             ValueError(s) => format!(
                 "Illegal combination of arguments: {}",
                 s
@@ -102,3 +125,4 @@ impl<T> FriendlyResult for Result<T> {
         }
     }
 }
+

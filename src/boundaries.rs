@@ -1,9 +1,9 @@
+use crate::pairlist::{Pairlist, Cutoff};
 use crate::units::f64;
 use crate::result::*;
+use crate::topology::Topology;
 
 use uom::typenum::consts::P2;
-
-pub type Pairlist = Vec<([usize; 2], f64::Area)>;
 
 /// Boundary conditions of a simulation
 ///
@@ -56,43 +56,12 @@ pub trait BoundaryConditions {
          + (z2 - z1).powi(P2::new())
     }
 
-    fn pairlist_checks(
+    fn topol_checks<P: Pairlist>(
         &self,
-        _positions: &[[f64::Length; 3]],
-        _topol: &crate::topology::Topology
+        _topol: &Topology<P>
     ) -> Result<()> {
         Ok(())
     }
-
-    /// Construct a list of pairs of indices for atoms within cutoff of each other
-    ///
-    /// # Arguments
-    ///
-    /// * `positions` - Positions of the atoms to construct the pairlist for
-    /// * `cutoff` - The cutoff distance beyond which pairs are excluded
-    fn construct_pairlist(
-        &self,
-        positions: &[[f64::Length; 3]],
-        topol: &crate::topology::Topology
-    ) -> Result<Pairlist> {
-        let cutoff = topol.lj_cutoff;
-        self.pairlist_checks(positions, topol)?;
-
-        let cutoff_squared = cutoff * cutoff;
-        let mut out = Vec::new();
-
-        for (i, a) in positions.iter().enumerate() {
-            for (j, b) in positions[i+1..].iter().enumerate() {
-                let r_squared = self.dist2(*a, *b);
-
-                if r_squared < cutoff_squared {
-                    out.push(([i, j], r_squared))
-                };
-            }
-        }
-        Ok(out)
-    }
-
 }
 
 /// No boundary conditions
@@ -201,11 +170,15 @@ impl BoundaryConditions for Pbc {
         min
     }
 
-    fn pairlist_checks(
+    fn topol_checks<P: Pairlist>(
         &self,
-        _positions: &[[f64::Length; 3]],
-        topol: &crate::topology::Topology
+        topol: &crate::topology::Topology<P>
     ) -> Result<()> {
+        let cutoff = match topol.cutoff() {
+            Cutoff::None => return Ok(()),
+            Cutoff::At(cutoff) => cutoff
+        };
+
         let Pbc(a, b, c) = *self;
 
         let smallest_box_length = [a, b, c]
@@ -220,7 +193,7 @@ impl BoundaryConditions for Pbc {
                 |min, x| if min <= x {min} else {x}
             );
 
-        if topol.lj_cutoff < smallest_box_length {
+        if cutoff < smallest_box_length {
             Ok(())
          } else {
             Err(MinimumImageConventionNotJustified)

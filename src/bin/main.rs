@@ -39,7 +39,6 @@ fn main() {
         println!("noether = {:?}, gromacs = {:?}", *a, b * KJPERMOL);
     }
 
-
     let positions = io::read_positions("test_targets/100_atoms/100_atoms.trr").unwrap();
 
     let energies = lj_from_positions(

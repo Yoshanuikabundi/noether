@@ -15,6 +15,11 @@ pub mod io;
 /// Store a simulation's boundary conditions and perform relevant calculations (eg, distances)
 pub mod boundaries;
 
+/// Store and compute the simulations pairlist
+pub mod pairlist;
+use pairlist::Pairlist;
+use pairlist::simple::SimplePairlist;
+
 /// Store the topology of a simulation
 ///
 /// This module has to be super-optimized and follows an ECS-style layout
@@ -31,7 +36,6 @@ use boundaries::BoundaryConditions;
 /// Current version of noether
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-
 /// Compute the Lennard-Jones energy of uncorrelated frames of a fluid of particles
 ///
 /// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
@@ -44,26 +48,26 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// * `frames`: List of frames, which are lists of atomic position 3-vectors; shape $(n_\mathrm{frames}, n_\mathrm{atoms}, 3)$
 /// * `top`: Topology of the system
-/// * `cutoff`: The cutoff beyond which the potential is zero. Potential is shifted by a constant $V_\mathrm{cutoff}$ to be zero at this distance.
 /// * `boundaries`: Boundary conditions; determines how distance is calculated
 pub fn lj_from_positions(
     frames: &[Vec<[f64::Length; 3]>],
-    top: &Topology,
+    top: &Topology<SimplePairlist>,
     boundaries: &impl BoundaryConditions
 ) -> Result<Vec<f64::Energy>> {
-    let mut energies = Vec::new();
+    let mut energies = Vec::with_capacity(frames.len());
+
+    let mut pairlist = SimplePairlist::with_capacity(top.len());
+
+    boundaries.topol_checks(top)?;
 
     for frame in frames {
         if frame.len() != top.len() {
-            return Err(ValueError(concat!(
-                "lj_from_positions requires topology and ",
-                "frames to have equal numbers of atoms"
-            )));
+            return Err(PositionTopologyMismatch);
         }
 
-        let pairlist = boundaries.construct_pairlist(frame, top)?;
+        pairlist.update(frame, top.cutoff(), boundaries)?;
 
-        let energy = top.lj_potential(pairlist);
+        let energy = top.compute_potential(&pairlist);
 
         energies.push(energy);
     }
