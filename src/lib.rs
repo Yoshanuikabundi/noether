@@ -28,31 +28,8 @@ pub use result::FriendlyResult;
 
 use boundaries::{BoundaryConditions, Pairlist};
 
-use uom::typenum::consts::*;
-
 /// Current version of noether
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Compute the LJ potential of a pair of atoms
-///
-/// $$ V = 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] $$
-///
-/// # Arguments
-///
-/// * `r_squared: Area`: Square of the distance between particles ($r^2$)
-/// * `sigma_squared: Length`: Finite distance squared at which potential is zero ($\sigma^2$)
-/// * `epsilon: Energy`: Depth of potential well ($\epsilon$)
-#[inline]
-pub fn lj_potential(
-    r_squared: f64::Area,
-    sigma_squared: f64::Area,
-    epsilon: f64::Energy
-) -> f64::Energy {
-    let six = (sigma_squared / r_squared).powi(P3::new());
-    let twelve = six.powi(P2::new());
-
-    4.0 * epsilon * (twelve - six)
-}
 
 /// Compute the Lennard-Jones energy of a single frame
 ///
@@ -63,21 +40,24 @@ pub fn lj_potential(
 /// * `top` - Topology of the system
 /// * `pairlist` - Pairlist to compute for, includes atom indices and distances
 /// * `cutoff_squared` - the LJ cutoff squared for shift
+///
+/// # Panics
+///
+/// Panics if an index in the pairlist isn't present in the topology
 pub fn frame_lj(
     top: &Topology,
-    pairlist: Pairlist,
-    cutoff_squared: f64::Area
+    pairlist: Pairlist
 ) -> f64::Energy {
     pairlist
         .iter()
         .fold(
             0.0 * f64::KJPERMOL,
             |energy, ([i, j], r_squared)| {
-                let LjParams { sigma: sigma_i, epsilon: epsilon_i } = top.get_lj_params(*i).unwrap();
-                let LjParams { sigma: sigma_j, epsilon: epsilon_j } = top.get_lj_params(*j).unwrap();
-                let sigma_squared = *sigma_i * *sigma_j;
-                let epsilon = (*epsilon_i * *epsilon_j).sqrt();
-                energy + lj_potential(*r_squared, sigma_squared, epsilon) - lj_potential(cutoff_squared, sigma_squared, epsilon)
+                energy
+                + top
+                    .get_lj_pair(*i, *j)
+                    .unwrap()
+                    .lj_potential(*r_squared)
             }
         )
 
@@ -100,23 +80,23 @@ pub fn frame_lj(
 pub fn lj_from_positions(
     frames: &[Vec<[f64::Length; 3]>],
     top: &Topology,
-    cutoff: f64::Length,
     boundaries: &impl BoundaryConditions
 ) -> Result<Vec<f64::Energy>> {
     let mut energies = Vec::new();
-    let cutoff_squared = cutoff.powi(P2::new());
 
     for frame in frames {
         if frame.len() != top.len() {
-            return Err(ValueError("lj_from_positions requires topology and frames to have equal numbers of atoms"));
+            return Err(ValueError(concat!(
+                "lj_from_positions requires topology and ",
+                "frames to have equal numbers of atoms"
+            )));
         }
 
-        let pairlist = boundaries.construct_pairlist(frame, cutoff)?;
+        let pairlist = boundaries.construct_pairlist(frame, top)?;
 
         let energy = frame_lj(
             top,
-            pairlist,
-            cutoff_squared
+            pairlist
         );
 
         energies.push(energy);
@@ -144,13 +124,13 @@ mod tests {
             "Me".to_string(),
             2,
             0.3405 * NM,
-            1.0000 * KJPERMOL
-        );
+            1.0000 * KJPERMOL,
+            1.2 * NM
+        ).unwrap();
 
         let energies = lj_from_positions(
             &positions,
             &topol,
-            1.2 * NM,
             &NoBounds,
         ).unwrap();
 
@@ -174,13 +154,13 @@ mod tests {
             "Me".to_string(),
             100,
             0.3405 * NM,
-            1.0000 * KJPERMOL
-        );
+            1.0000 * KJPERMOL,
+            1.2 * NM
+        ).unwrap();
 
         let energies = lj_from_positions(
             &positions,
             &topol,
-            1.2 * NM,
             &Pbc::cubic(5.0*NM),
         ).unwrap();
 

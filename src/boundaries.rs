@@ -59,7 +59,7 @@ pub trait BoundaryConditions {
     fn pairlist_checks(
         &self,
         _positions: &[[f64::Length; 3]],
-        _cutoff: f64::Length
+        _topol: &crate::topology::Topology
     ) -> Result<()> {
         Ok(())
     }
@@ -73,9 +73,10 @@ pub trait BoundaryConditions {
     fn construct_pairlist(
         &self,
         positions: &[[f64::Length; 3]],
-        cutoff: f64::Length
+        topol: &crate::topology::Topology
     ) -> Result<Pairlist> {
-        self.pairlist_checks(positions, cutoff)?;
+        let cutoff = topol.lj_cutoff;
+        self.pairlist_checks(positions, topol)?;
 
         let cutoff_squared = cutoff * cutoff;
         let mut out = Vec::new();
@@ -203,7 +204,7 @@ impl BoundaryConditions for Pbc {
     fn pairlist_checks(
         &self,
         _positions: &[[f64::Length; 3]],
-        cutoff: f64::Length
+        topol: &crate::topology::Topology
     ) -> Result<()> {
         let Pbc(a, b, c) = *self;
 
@@ -219,7 +220,7 @@ impl BoundaryConditions for Pbc {
                 |min, x| if min <= x {min} else {x}
             );
 
-        if cutoff < smallest_box_length {
+        if topol.lj_cutoff < smallest_box_length {
             Ok(())
          } else {
             Err(MinimumImageConventionNotJustified)

@@ -13,22 +13,23 @@ fn main() {
         "Me".to_string(),
         2,
         0.3405 * NM,
-        1.0000 * KJPERMOL
-    );
+        1.0000 * KJPERMOL,
+        1.2 * NM,
+    ).unwrap();
 
     let topol_100atoms = Topology::lj_fluid(
         "Me".to_string(),
         100,
         0.3405 * NM,
-        1.0000 * KJPERMOL
-    );
+        1.0000 * KJPERMOL,
+        1.2 * NM,
+    ).unwrap();
 
     let positions = io::read_positions("test_targets/2_atoms/2_atoms_frommax.trr").unwrap();
 
     let energies = lj_from_positions(
         &positions,
         &topol_2atoms,
-        1.2 * NM,
         &NoBounds,
     ).unwrap_nicely();
 
@@ -44,7 +45,6 @@ fn main() {
     let energies = lj_from_positions(
         &positions,
         &topol_100atoms,
-        1.2 * NM,
         &Pbc::cubic(5.0*NM),
     ).unwrap_nicely();
 
@@ -57,7 +57,6 @@ fn main() {
     lj_from_positions(
         &positions,
         &topol_2atoms,
-        1.2 * NM,
         &NoBounds,
     ).unwrap_nicely();
 }

@@ -12,12 +12,17 @@ pub enum Error {
     /// only permits a pair of atoms to appear once.
     MinimumImageConventionNotJustified,
 
+    /// Error variant when attempting to create an illegal topology.
+    IllegalTopology,
+
     /// Error variant for illegal combinations of function arguments.
     ///
     /// The goal should be to eventually refactor to remove this form
     /// of error and make illegal combinations unrepresentable. I don't
     /// know if that's realistic yet though.
     ValueError(&'static str)
+
+
 }
 
 impl Error {
@@ -28,6 +33,7 @@ impl Error {
         match self {
             MinimumImageConventionNotJustified => "MinimumImageConventionNotJustified",
             ValueError(_) => "ValueError",
+            IllegalTopology => "IllegalTopology",
         }
     }
 
@@ -38,6 +44,7 @@ impl Error {
                 "Minimum image convention not justified. ",
                 "Make the cutoff smaller or the box bigger."
             ).to_string(),
+            IllegalTopology => "Atom mismatch in proposed topology".to_string(),
             ValueError(s) => format!(
                 "Illegal combination of arguments: {}",
                 s
