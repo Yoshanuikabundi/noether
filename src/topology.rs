@@ -100,6 +100,7 @@ impl Topology {
     /// * `num_atoms: usize` - Number of atoms in the topology
     /// * `sigma: Length` - Value of sigma to use for all atoms
     /// * `epsilon: Energy` - Value of epsilon to use for all atoms
+    /// * `cutoff: Length` - Distance beyond which potential is zero
     pub fn lj_fluid(
         name: String,
         num_atoms: usize,
@@ -151,6 +152,34 @@ impl Topology {
     /// Return the number of atoms in the topology
     pub fn len(&self) -> usize {
         self.atoms.len()
+    }
+
+    /// Compute the Lennard-Jones energy of a single frame
+    ///
+    /// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
+    ///
+    /// # Arguments
+    ///
+    /// * `top` - Topology of the system
+    /// * `pairlist` - Pairlist to compute for, includes atom indices and distances
+    /// * `cutoff_squared` - the LJ cutoff squared for shift
+    ///
+    /// # Panics
+    ///
+    /// Panics if an index in the pairlist isn't present in the topology
+    pub fn lj_potential(&self, pairlist: crate::boundaries::Pairlist) -> f64::Energy {
+        pairlist
+            .iter()
+            .fold(
+                0.0 * f64::KJPERMOL,
+                |energy, ([i, j], r_squared)| {
+                    energy
+                    + self
+                        .get_lj_pair(*i, *j)
+                        .unwrap()
+                        .lj_potential(*r_squared)
+                }
+            )
     }
 }
 
@@ -206,7 +235,7 @@ impl LjParamsPair {
 
     /// Compute the LJ potential of a pair of atoms
     ///
-    /// $$ V = 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] $$
+    /// $$ V = 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
     ///
     /// # Arguments
     ///
@@ -216,7 +245,7 @@ impl LjParamsPair {
     ///
     /// * `sigma_squared: Length`: Finite distance squared at which potential is zero ($\sigma^2$)
     /// * `epsilon: Energy`: Depth of potential well ($\epsilon$)
-    /// * `shift: Energy`: Potential value at cutoff
+    /// * `shift: Energy`: Potential value at cutoff ($V_\mathrm{cutoff}$)
     #[inline]
     pub fn lj_potential(&self, r_squared: f64::Area) -> f64::Energy {
         let six = (self.sigma_squared / r_squared).powi(P3::new());

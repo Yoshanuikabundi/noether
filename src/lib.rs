@@ -26,42 +26,11 @@ pub mod result;
 use result::*;
 pub use result::FriendlyResult;
 
-use boundaries::{BoundaryConditions, Pairlist};
+use boundaries::BoundaryConditions;
 
 /// Current version of noether
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Compute the Lennard-Jones energy of a single frame
-///
-/// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
-///
-/// # Arguments
-///
-/// * `top` - Topology of the system
-/// * `pairlist` - Pairlist to compute for, includes atom indices and distances
-/// * `cutoff_squared` - the LJ cutoff squared for shift
-///
-/// # Panics
-///
-/// Panics if an index in the pairlist isn't present in the topology
-pub fn frame_lj(
-    top: &Topology,
-    pairlist: Pairlist
-) -> f64::Energy {
-    pairlist
-        .iter()
-        .fold(
-            0.0 * f64::KJPERMOL,
-            |energy, ([i, j], r_squared)| {
-                energy
-                + top
-                    .get_lj_pair(*i, *j)
-                    .unwrap()
-                    .lj_potential(*r_squared)
-            }
-        )
-
-}
 
 /// Compute the Lennard-Jones energy of uncorrelated frames of a fluid of particles
 ///
@@ -94,10 +63,7 @@ pub fn lj_from_positions(
 
         let pairlist = boundaries.construct_pairlist(frame, top)?;
 
-        let energy = frame_lj(
-            top,
-            pairlist
-        );
+        let energy = top.lj_potential(pairlist);
 
         energies.push(energy);
     }
