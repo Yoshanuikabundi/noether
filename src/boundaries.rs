@@ -3,6 +3,8 @@ use crate::result::*;
 
 use uom::typenum::consts::P2;
 
+pub type Pairlist = Vec<([usize; 2], f64::Area)>;
+
 /// Boundary conditions of a simulation
 ///
 /// Implements distance computations and probably more in the future
@@ -72,7 +74,7 @@ pub trait BoundaryConditions {
         &self,
         positions: &[[f64::Length; 3]],
         cutoff: f64::Length
-    ) -> Result<Vec<([usize; 2], f64::Area)>> {
+    ) -> Result<Pairlist> {
         self.pairlist_checks(positions, cutoff)?;
 
         let cutoff_squared = cutoff * cutoff;

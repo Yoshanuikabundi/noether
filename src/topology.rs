@@ -26,14 +26,33 @@ use crate::units::f64;
 /// four-fold smaller Atoms while still allowing ~66k different
 /// parameters. Since systems are mostly copies of identical
 /// atoms (eg, water), this should be plenty.
+///
+/// We're using vectors here because we don't know the sizes at
+/// compile time; Topology shouldn't ever have to reallocate its
+/// fields.
 pub struct Topology {
+    /// The atoms in the topology
+    ///
+    /// Contains indices for other parameters
     atoms: Vec<Atom>,
+    /// Every atom has a unique atom_name, index not in Atom
     atom_names: Vec<String>,
     /// lj_params is an atomtype in GROMACS
+    ///
+    /// Indexed by u16
     lj_params: Vec<LjParams>,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl Topology {
+    /// Create a topology for a homogenous Lennard Jones fluid
+    ///
+    /// # Arguments
+    ///
+    /// * `name: String` - Name to use for the atoms
+    /// * `num_atoms: usize` - Number of atoms in the topology
+    /// * `sigma: Length` - Value of sigma to use for all atoms
+    /// * `epsilon: Energy` - Value of epsilon to use for all atoms
     pub fn lj_fluid(
         name: String,
         num_atoms: usize,
@@ -49,50 +68,60 @@ impl Topology {
         }
     }
 
-    pub fn iter_lj(&self) -> TopolIterator<LjParams> {
-        TopolIterator::new(self, &self.lj_params)
+    /// Get the LJ parameters of atom `index`
+    pub fn get_lj_params(&self, index: usize) -> Option<&LjParams> {
+        let index = self.atoms.get(index)?.lj_params as usize;
+        self.lj_params.get(index)
+    }
+
+    /// Get the name of atom `index`
+    pub fn get_atom_names(&self, index: usize) -> Option<&String> {
+        self.atom_names.get(index)
+    }
+
+    /// Iterate over the Lennard-Jones parameters of the atoms
+    pub fn iter_lj_params(&self) -> TopolIterator<LjParams> {
+        TopolIterator {
+            iterator: self.atoms.iter(),
+            vector: &self.lj_params
+        }
+    }
+
+    /// Iterate over the atom names
+    pub fn iter_atom_names(&self) -> std::slice::Iter<String> {
+        self.atom_names.iter()
+    }
+
+    /// Return the number of atoms in the topology
+    pub fn len(&self) -> usize {
+        self.atoms.len()
     }
 }
 
 /// An atom.
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug)]
 struct Atom {
     /// 66k unique Lennard-Jones parameters
     lj_params: u16
 }
 
 /// A pair of LJ parameters.
+#[derive(Clone, Debug)]
 pub struct LjParams {
     pub sigma: f64::Length,
     pub epsilon: f64::Energy
 }
 
 pub struct TopolIterator<'a, T> {
-    topol: &'a Topology,
-    vector: &'a Vec<T>,
-    index: usize
+    iterator: std::slice::Iter<'a, Atom>,
+    vector: &'a [T]
 }
 
-impl<'a, T> TopolIterator<'a, T> {
-    #[allow(clippy::ptr_arg)]
-    fn new(topol: &'a Topology, vector: &'a Vec<T>) -> Self {
-        TopolIterator {
-            topol,
-            vector,
-            index: 0
-        }
+impl<'a> Iterator for TopolIterator<'a, LjParams> {
+    type Item = &'a LjParams;
+
+    fn next(&mut self) -> Option<Self::Item>  {
+        let atom = self.iterator.next()?;
+        self.vector.get(atom.lj_params as usize)
     }
-}
-
-impl<T> Iterator for TopolIterator<'_, T>
-    where T: Copy
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<T>  {
-        let atom = self.topol.atoms[self.index];
-        self.index += 1;
-        self.vector.get(atom.lj_params as usize).copied()
-    }
-
 }

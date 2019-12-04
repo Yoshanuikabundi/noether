@@ -19,13 +19,14 @@ pub mod boundaries;
 ///
 /// This module has to be super-optimized and follows an ECS-style layout
 pub mod topology;
+use crate::topology::*;
 
 /// Error handling for this crate
 pub mod result;
 use result::*;
 pub use result::FriendlyResult;
 
-use boundaries::BoundaryConditions;
+use boundaries::{BoundaryConditions, Pairlist};
 
 use uom::typenum::consts::*;
 
@@ -53,6 +54,35 @@ pub fn lj_potential(
     4.0 * epsilon * (twelve - six)
 }
 
+/// Compute the Lennard-Jones energy of a single frame
+///
+/// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
+///
+/// # Arguments
+///
+/// * `top` - Topology of the system
+/// * `pairlist` - Pairlist to compute for, includes atom indices and distances
+/// * `cutoff_squared` - the LJ cutoff squared for shift
+pub fn frame_lj(
+    top: &Topology,
+    pairlist: Pairlist,
+    cutoff_squared: f64::Area
+) -> f64::Energy {
+    pairlist
+        .iter()
+        .fold(
+            0.0 * f64::KJPERMOL,
+            |energy, ([i, j], r_squared)| {
+                let LjParams { sigma: sigma_i, epsilon: epsilon_i } = top.get_lj_params(*i).unwrap();
+                let LjParams { sigma: sigma_j, epsilon: epsilon_j } = top.get_lj_params(*j).unwrap();
+                let sigma_squared = *sigma_i * *sigma_j;
+                let epsilon = (*epsilon_i * *epsilon_j).sqrt();
+                energy + lj_potential(*r_squared, sigma_squared, epsilon) - lj_potential(cutoff_squared, sigma_squared, epsilon)
+            }
+        )
+
+}
+
 /// Compute the Lennard-Jones energy of uncorrelated frames of a fluid of particles
 ///
 /// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
@@ -64,37 +94,30 @@ pub fn lj_potential(
 /// # Arguments
 ///
 /// * `frames`: List of frames, which are lists of atomic position 3-vectors; shape $(n_\mathrm{frames}, n_\mathrm{atoms}, 3)$
-/// * `sigmas`: Sigma ($\sigma$) values for each atom in `frames`; shape $(n_\mathrm{atoms})$
-/// * `epsilons`: Epsilon ($\epsilon$) values for each atom in `frames`; shape $(n_\mathrm{atoms})$
+/// * `top`: Topology of the system
 /// * `cutoff`: The cutoff beyond which the potential is zero. Potential is shifted by a constant $V_\mathrm{cutoff}$ to be zero at this distance.
 /// * `boundaries`: Boundary conditions; determines how distance is calculated
 pub fn lj_from_positions(
     frames: &[Vec<[f64::Length; 3]>],
-    sigmas: &[f64::Length],
-    epsilons: &[f64::Energy],
+    top: &Topology,
     cutoff: f64::Length,
     boundaries: &impl BoundaryConditions
 ) -> Result<Vec<f64::Energy>> {
-    if sigmas.len() != epsilons.len() {
-        return Err(ValueError("lj_from_positions requires equal numbers of sigmas and epsilons"));
-    }
-
     let mut energies = Vec::new();
     let cutoff_squared = cutoff.powi(P2::new());
 
     for frame in frames {
-        let mut energy = 0.0 * f64::KJPERMOL;
-
-        if frame.len() != sigmas.len() {
-            return Err(ValueError("lj_from_positions requires frames with equal numbers of atoms to sigmas and epsilons"));
+        if frame.len() != top.len() {
+            return Err(ValueError("lj_from_positions requires topology and frames to have equal numbers of atoms"));
         }
 
-        for ([i, j], r_squared) in boundaries.construct_pairlist(frame, cutoff)? {
-            let sigma_squared = sigmas[i] * sigmas[j];
-            let epsilon = (epsilons[i] * epsilons[j]).sqrt();
+        let pairlist = boundaries.construct_pairlist(frame, cutoff)?;
 
-            energy += lj_potential(r_squared, sigma_squared, epsilon) - lj_potential(cutoff_squared, sigma_squared, epsilon);
-        }
+        let energy = frame_lj(
+            top,
+            pairlist,
+            cutoff_squared
+        );
 
         energies.push(energy);
     }
@@ -109,6 +132,7 @@ mod tests {
     use crate::io;
     use crate::lj_from_positions;
     use crate::boundaries::*;
+    use crate::topology::Topology;
 
     #[test]
     fn lj_potential_2atoms() {
@@ -116,10 +140,16 @@ mod tests {
             "test_targets/2_atoms/2_atoms_frommax.trr"
         ).unwrap();
 
+        let topol = Topology::lj_fluid(
+            "Me".to_string(),
+            2,
+            0.3405 * NM,
+            1.0000 * KJPERMOL
+        );
+
         let energies = lj_from_positions(
             &positions,
-            &[0.3405 * NM; 2],
-            &[1.0000 * KJPERMOL; 2],
+            &topol,
             1.2 * NM,
             &NoBounds,
         ).unwrap();
@@ -140,10 +170,16 @@ mod tests {
             "test_targets/100_atoms/100_atoms.trr"
         ).unwrap();
 
+        let topol = Topology::lj_fluid(
+            "Me".to_string(),
+            100,
+            0.3405 * NM,
+            1.0000 * KJPERMOL
+        );
+
         let energies = lj_from_positions(
             &positions,
-            &[0.3405 * NM; 100],
-            &[1.0000 * KJPERMOL; 100],
+            &topol,
             1.2 * NM,
             &Pbc::cubic(5.0*NM),
         ).unwrap();
