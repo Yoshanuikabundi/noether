@@ -5,49 +5,27 @@ use crate::boundaries::BoundaryConditions;
 
 pub mod simple;
 
-#[derive(Debug, Clone, Copy)]
-/// A cutoff for computing a non-bonded potential
-pub enum Cutoff {
-    At(f64::Length),
-    None,
-}
-
-impl From<Cutoff> for Result<f64::Length> {
-    fn from(cutoff: Cutoff) -> Result<f64::Length> {
-        match cutoff {
-            Cutoff::At(l) => Ok(l),
-            Cutoff::None => Err(CutoffRequired),
-        }
-    }
-}
-
-impl From<Cutoff> for Option<f64::Length> {
-    fn from(cutoff: Cutoff) -> Option<f64::Length> {
-        match cutoff {
-            Cutoff::At(l) => Some(l),
-            Cutoff::None => None,
-        }
-    }
-}
+pub type Cutoff = Option<f64::Length>;
 
 /// A pair of atom indices and the squared distance between them
 pub type AtomPair = ([usize; 2], f64::Area);
 
 /// Trait for producing pairlists to compute potentials from
-pub trait Pairlist
-    where
-        Self: std::marker::Sized
+pub trait Pairlist<B: BoundaryConditions>
 {
     /// Update the pairlist based on the positions of atoms
     fn update(
         &mut self,
         positions: &[[f64::Length; 3]],
-        cutoff: Cutoff,
-        boundaries: &impl BoundaryConditions
+        boundaries: &B
     ) -> Result<()>;
 
     /// Iterate over the atom pairs in the pairlist
     fn iter(&self) -> std::slice::Iter<AtomPair>;
+
+    fn new(cutoff: Cutoff) -> Result<Self> where Self: Sized;
+
+    fn cutoff(&self) -> Cutoff;
 }
 
 

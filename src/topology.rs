@@ -1,4 +1,5 @@
-use crate::pairlist::{Pairlist, Cutoff};
+use crate::boundaries::BoundaryConditions;
+use crate::pairlist::Pairlist;
 use crate::units::f64;
 use crate::result::*;
 
@@ -7,27 +8,19 @@ pub mod lj;
 
 /// Trait for types that represent particular potentials
 /// in a topology
-trait Potential<P>
-    where
-        P: Pairlist
+trait Potential
 {
-    /// Compute the potential, with aid of a pairlist if required
-    fn compute_potential(
-        &self,
-        pairlist: &P
-    ) -> f64::Energy;
+    /// Compute the potential
+    ///
+    /// Potentials must figure out their own access to
+    /// the simulation's state
+    fn compute_potential(&self) -> f64::Energy;
 
     /// Get the number of atoms accounted for by the potential.
     ///
     /// Should always be the same number (in the same order) as
     /// the topology
     fn num_atoms(&self) -> usize;
-
-    /// The cutoff required for the potential. None if no pairs
-    /// should be computed.
-    fn cutoff(&self) -> Cutoff {
-        Cutoff::None
-    }
 }
 
 /// Stores the parameters of all atoms as vectors
@@ -50,41 +43,29 @@ trait Potential<P>
 /// We're using vectors here because we don't know the sizes at
 /// compile time; Topology shouldn't ever have to reallocate its
 /// fields.
-pub struct Topology<P: Pairlist> {
+pub struct Topology<'a> {
     /// Every atom has a unique atom_name, index not in Atom
     atom_names: Vec<String>,
     /// All the potentials in the topology
-    potentials: Vec<Box<dyn Potential<P>>>,
-    /// The cutoff for the overall topology
-    cutoff: Cutoff
+    potentials: Vec<Box<dyn Potential + 'a>>
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl<P: Pairlist> Topology<P> {
+impl<'a> Topology<'a> {
     fn new(
-        atom_names: Vec<String>,
-        potentials: Vec<Box<dyn Potential<P>>>
+        atom_names: &[String],
+        potentials: Vec<Box<dyn Potential + 'a>>
     ) -> Result<Self>{
-        let mut cutoff = Cutoff::None;
         for potential in potentials.iter() {
             // Check that each potential has the right number of Atoms
             if potential.num_atoms() != atom_names.len() {
                 return Err(IllegalTopology);
             }
-            // Compute the overall topology cutoff
-            cutoff = match (potential.cutoff(), cutoff) {
-                (Cutoff::None, Cutoff::None) => Cutoff::None,
-                (Cutoff::At(l), Cutoff::None) => Cutoff::At(l),
-                (Cutoff::None, Cutoff::At(l)) => Cutoff::At(l),
-                (Cutoff::At(a), Cutoff::At(b)) if a == b => Cutoff::At(a),
-                (Cutoff::At(_), Cutoff::At(_)) => return Err(InconsistentCutoffs)
-            }
         }
 
         Ok(Topology {
-            atom_names,
-            potentials,
-            cutoff
+            atom_names: atom_names.to_vec(),
+            potentials
         })
 
     }
@@ -98,24 +79,27 @@ impl<P: Pairlist> Topology<P> {
     /// * `sigma: Length` - Value of sigma to use for all atoms
     /// * `epsilon: Energy` - Value of epsilon to use for all atoms
     /// * `cutoff: Length` - Distance beyond which potential is zero
-    pub fn lj_fluid(
+    pub fn lj_fluid<P: 'a + Pairlist<B>, B: 'a + BoundaryConditions>(
         name: String,
         num_atoms: usize,
         sigma: f64::Length,
         epsilon: f64::Energy,
         cutoff: f64::Length
-    ) -> Result<Self> {
-        let lj_potential = lj::LjPotential::lj_fluid(
+    ) -> Result<(Self, P)> {
+        let (lj_potential, pairlist) = lj::LjPotential::lj_fluid(
             num_atoms,
             sigma,
             epsilon,
             cutoff
-        );
+        )?;
 
-        Topology::new(
-            vec![name; num_atoms],
-            vec![Box::new(lj_potential?)]
-        )
+        Ok((
+            Topology::new(
+                &vec![name; num_atoms],
+                vec![Box::new(lj_potential)],
+            )?,
+            pairlist
+        ))
     }
 
     /// Get the name of atom `index`
@@ -133,19 +117,15 @@ impl<P: Pairlist> Topology<P> {
         self.atom_names.len()
     }
 
-    pub fn compute_potential(&self, pairlist: &P) -> f64::Energy {
+    pub fn compute_potential(&self) -> f64::Energy {
         self
             .potentials
             .iter()
             .fold(
                 0.0 * f64::KJPERMOL,
                 |acc, pot| {
-                    acc + pot.compute_potential(pairlist)
+                    acc + pot.compute_potential()
                 }
             )
-    }
-
-    pub fn cutoff(&self) -> Cutoff {
-        self.cutoff
     }
 }

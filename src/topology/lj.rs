@@ -1,4 +1,5 @@
-use crate::pairlist::{Pairlist, Cutoff};
+use crate::boundaries::BoundaryConditions;
+use crate::pairlist::{Pairlist};
 use crate::units::f64;
 use crate::result::*;
 use uom::typenum::consts::*;
@@ -7,7 +8,7 @@ use super::Potential;
 /// u16 means ~66k unique LJ parameters
 type Atom = u16;
 
-pub struct LjPotential {
+pub struct LjPotential<'a, P: 'a + Pairlist<B>, B: BoundaryConditions> {
     /// LJ index for each atom.
     atoms: Vec<Atom>,
     /// lj_params is an atomtype in GROMACS
@@ -16,15 +17,30 @@ pub struct LjPotential {
     lj_params_pairs: Vec<Vec<LjParamsPair>>,
     /// Cutoff really is a feature of the topology
     lj_cutoff: f64::Length,
+    /// The pairlist
+    pairlist: &'a P,
+    _marker: std::marker::PhantomData<B>
 }
 
-
-#[allow(clippy::len_without_is_empty)]
-impl LjPotential {
+impl<'a, P: 'a +  Pairlist<B>, B: BoundaryConditions> LjPotential<'a, P, B> {
     fn new(
         atoms: Vec<Atom>,
         lj_params: Vec<LjParams>,
         lj_cutoff: f64::Length
+    ) -> Result<(Self, P)> {
+        let pairlist = P::new(Some(lj_cutoff))?;
+        let lj_pot = Self::with_pairlist(
+            atoms,
+            lj_params,
+            &pairlist
+        )?;
+        Ok((lj_pot, pairlist))
+    }
+
+    fn with_pairlist(
+        atoms: Vec<Atom>,
+        lj_params: Vec<LjParams>,
+        pairlist: &'a P
     ) -> Result<Self> {
         // Check that every atom has LJ parameters
         for atom in atoms.iter() {
@@ -32,6 +48,11 @@ impl LjPotential {
                 return Err(IllegalTopology);
             }
         }
+
+        let lj_cutoff = match pairlist.cutoff() {
+            Some(f) => f,
+            None => return Err(CutoffRequired)
+        };
 
         // Pre-compute all LJ pairs
         // TODO: Replace Vec with some ndarray-style type
@@ -48,7 +69,9 @@ impl LjPotential {
             atoms,
             _lj_params: lj_params,
             lj_params_pairs,
-            lj_cutoff
+            lj_cutoff,
+            pairlist,
+            _marker: std::marker::PhantomData
         })
 
     }
@@ -67,7 +90,7 @@ impl LjPotential {
         sigma: f64::Length,
         epsilon: f64::Energy,
         cutoff: f64::Length
-    ) -> Result<Self> {
+    ) -> Result<(Self, P)> {
         let lj_param = LjParams { sigma, epsilon };
         let atom = 0;
         Self::new(
@@ -86,7 +109,7 @@ impl LjPotential {
     }
 }
 
-impl<P: Pairlist> Potential<P> for LjPotential {
+impl<P: Pairlist<B>, B: BoundaryConditions> Potential for LjPotential<'_, P, B> {
     /// Compute the Lennard-Jones energy of a single frame
     ///
     /// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
@@ -98,11 +121,8 @@ impl<P: Pairlist> Potential<P> for LjPotential {
     /// # Panics
     ///
     /// Panics if an index in the pairlist isn't present in the topology
-    fn compute_potential(
-        &self,
-        pairlist: &P
-    ) -> f64::Energy {
-        pairlist
+    fn compute_potential(&self) -> f64::Energy {
+        self.pairlist
             .iter()
             .fold(
                 0.0 * f64::KJPERMOL,
@@ -119,10 +139,6 @@ impl<P: Pairlist> Potential<P> for LjPotential {
     /// Return the number of atoms in the topology
     fn num_atoms(&self) -> usize {
         self.atoms.len()
-    }
-
-    fn cutoff(&self) -> Cutoff {
-        Cutoff::At(self.lj_cutoff)
     }
 }
 

@@ -1,7 +1,6 @@
-use crate::pairlist::{Pairlist, Cutoff};
+use crate::pairlist::{Pairlist};
 use crate::units::f64;
 use crate::result::*;
-use crate::topology::Topology;
 
 use uom::typenum::consts::P2;
 
@@ -56,10 +55,10 @@ pub trait BoundaryConditions {
          + (z2 - z1).powi(P2::new())
     }
 
-    fn topol_checks<P: Pairlist>(
+    fn pairlist_checks<P: Pairlist<Self>>(
         &self,
-        _topol: &Topology<P>
-    ) -> Result<()> {
+        _pairlist: &P
+    ) -> Result<()>  where Self: std::marker::Sized {
         Ok(())
     }
 }
@@ -170,13 +169,13 @@ impl BoundaryConditions for Pbc {
         min
     }
 
-    fn topol_checks<P: Pairlist>(
+    fn pairlist_checks<P: Pairlist<Self>>(
         &self,
-        topol: &crate::topology::Topology<P>
+        pairlist: &P
     ) -> Result<()> {
-        let cutoff = match topol.cutoff() {
-            Cutoff::None => return Ok(()),
-            Cutoff::At(cutoff) => cutoff
+        let cutoff = match pairlist.cutoff() {
+            None => return Ok(()),
+            Some(cutoff) => cutoff
         };
 
         let Pbc(a, b, c) = *self;

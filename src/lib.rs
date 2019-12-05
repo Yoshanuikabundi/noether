@@ -12,13 +12,15 @@ use units::f64;
 /// Read from and write to disk
 pub mod io;
 
+/// Store the state of a simulation
+pub mod state;
+
 /// Store a simulation's boundary conditions and perform relevant calculations (eg, distances)
 pub mod boundaries;
 
 /// Store and compute the simulations pairlist
 pub mod pairlist;
 use pairlist::Pairlist;
-use pairlist::simple::SimplePairlist;
 
 /// Store the topology of a simulation
 ///
@@ -49,25 +51,24 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// * `frames`: List of frames, which are lists of atomic position 3-vectors; shape $(n_\mathrm{frames}, n_\mathrm{atoms}, 3)$
 /// * `top`: Topology of the system
 /// * `boundaries`: Boundary conditions; determines how distance is calculated
-pub fn lj_from_positions(
+pub fn lj_from_positions<B: BoundaryConditions>(
     frames: &[Vec<[f64::Length; 3]>],
-    top: &Topology<SimplePairlist>,
-    boundaries: &impl BoundaryConditions
+    top: &Topology,
+    boundaries: &B,
+    pairlist: &mut impl Pairlist<B>
 ) -> Result<Vec<f64::Energy>> {
     let mut energies = Vec::with_capacity(frames.len());
 
-    let mut pairlist = SimplePairlist::with_capacity(top.len());
-
-    boundaries.topol_checks(top)?;
+    boundaries.pairlist_checks(pairlist)?;
 
     for frame in frames {
         if frame.len() != top.len() {
             return Err(PositionTopologyMismatch);
         }
 
-        pairlist.update(frame, top.cutoff(), boundaries)?;
+        pairlist.update(frame, boundaries)?;
 
-        let energy = top.compute_potential(&pairlist);
+        let energy = top.compute_potential();
 
         energies.push(energy);
     }
@@ -83,6 +84,7 @@ mod tests {
     use crate::lj_from_positions;
     use crate::boundaries::*;
     use crate::topology::Topology;
+    use crate::pairlist::simple::SimplePairlist;
 
     #[test]
     fn lj_potential_2atoms() {
@@ -90,7 +92,7 @@ mod tests {
             "test_targets/2_atoms/2_atoms_frommax.trr"
         ).unwrap();
 
-        let topol = Topology::lj_fluid(
+        let (topol, mut pairlist) = Topology::lj_fluid::<SimplePairlist<_>, NoBounds>(
             "Me".to_string(),
             2,
             0.3405 * NM,
@@ -102,6 +104,7 @@ mod tests {
             &positions,
             &topol,
             &NoBounds,
+            &mut pairlist
         ).unwrap();
 
         let energies_ref = io::read_xvg(
@@ -120,7 +123,7 @@ mod tests {
             "test_targets/100_atoms/100_atoms.trr"
         ).unwrap();
 
-        let topol = Topology::lj_fluid(
+        let (topol, mut pairlist) = Topology::lj_fluid::<SimplePairlist<_>, Pbc>(
             "Me".to_string(),
             100,
             0.3405 * NM,
@@ -132,6 +135,7 @@ mod tests {
             &positions,
             &topol,
             &Pbc::cubic(5.0*NM),
+            &mut pairlist
         ).unwrap();
 
         let energies_ref = io::read_xvg(
