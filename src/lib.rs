@@ -5,6 +5,8 @@ extern crate uom;
 #[macro_use]
 extern crate more_asserts;
 
+use std::collections::HashMap;
+
 /// Keep our units straight (Based on `uom` crate)
 pub mod units;
 use units::f64;
@@ -12,15 +14,13 @@ use units::f64;
 /// Read from and write to disk
 pub mod io;
 
-/// Store the state of a simulation
-pub mod state;
-
 /// Store a simulation's boundary conditions and perform relevant calculations (eg, distances)
 pub mod boundaries;
 
 /// Store and compute the simulations pairlist
 pub mod pairlist;
-use pairlist::Pairlist;
+use pairlist::{Pairlist, PairlistParams};
+use pairlist::simple::SimplePairlist;
 
 /// Store the topology of a simulation
 ///
@@ -38,9 +38,9 @@ use boundaries::BoundaryConditions;
 /// Current version of noether
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Compute the Lennard-Jones energy of uncorrelated frames of a fluid of particles
+/// Compute the potential energy of uncorrelated frames of the system described by `top` and `boundaries`
 ///
-/// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
+/// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} V_\mathrm{atom}(r)
 ///
 /// Returns a list of values $V_\mathrm{frame}$ for each frame.
 ///
@@ -51,24 +51,41 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// * `frames`: List of frames, which are lists of atomic position 3-vectors; shape $(n_\mathrm{frames}, n_\mathrm{atoms}, 3)$
 /// * `top`: Topology of the system
 /// * `boundaries`: Boundary conditions; determines how distance is calculated
-pub fn lj_from_positions<B: BoundaryConditions>(
+pub fn pot_from_positions<B: BoundaryConditions>(
     frames: &[Vec<[f64::Length; 3]>],
-    top: &Topology,
-    boundaries: &B,
-    pairlist: &mut impl Pairlist<B>
+    top: &Topology<B>,
+    boundaries: &B
 ) -> Result<Vec<f64::Energy>> {
     let mut energies = Vec::with_capacity(frames.len());
 
-    boundaries.pairlist_checks(pairlist)?;
+    // Construct the pairlists for the topology and store them together
+    let mut pairlists_dict: HashMap<String, SimplePairlist<B>> = HashMap::new();
+    for PairlistParams::NonbondedCutoff(cutoff) in top.iter_pairlists() {
+        pairlists_dict
+            .entry(format!("{:?}", cutoff))
+            .or_insert(SimplePairlist::new(Some(cutoff))?);
+    }
 
     for frame in frames {
         if frame.len() != top.len() {
             return Err(PositionTopologyMismatch);
         }
 
-        pairlist.update(frame, boundaries)?;
+        // Update all the pairlists
+        pairlists_dict
+            .iter_mut()
+            .try_for_each(|(_, pairlist)| pairlist.update(frame, boundaries))?
+        ;
 
-        let energy = top.compute_potential();
+        // Construct a list of pairlists that matches the topology
+        let mut pairlists: Vec<&dyn Pairlist<B>> = vec![];
+        for PairlistParams::NonbondedCutoff(cutoff) in top.iter_pairlists() {
+            let pairlist = pairlists_dict.get(&format!("{:?}", cutoff)).unwrap();
+            boundaries.pairlist_checks(pairlist)?;
+            pairlists.push(pairlist)
+        }
+
+        let energy = top.compute_potential(&pairlists);
 
         energies.push(energy);
     }
@@ -81,10 +98,9 @@ mod tests {
     use crate::units::f64::KJPERMOL;
     use crate::units::f64::NM;
     use crate::io;
-    use crate::lj_from_positions;
+    use crate::pot_from_positions;
     use crate::boundaries::*;
     use crate::topology::Topology;
-    use crate::pairlist::simple::SimplePairlist;
 
     #[test]
     fn lj_potential_2atoms() {
@@ -92,7 +108,7 @@ mod tests {
             "test_targets/2_atoms/2_atoms_frommax.trr"
         ).unwrap();
 
-        let (topol, mut pairlist) = Topology::lj_fluid::<SimplePairlist<_>, NoBounds>(
+        let topol = Topology::lj_fluid(
             "Me".to_string(),
             2,
             0.3405 * NM,
@@ -100,11 +116,10 @@ mod tests {
             1.2 * NM
         ).unwrap();
 
-        let energies = lj_from_positions(
+        let energies = pot_from_positions(
             &positions,
             &topol,
-            &NoBounds,
-            &mut pairlist
+            &NoBounds
         ).unwrap();
 
         let energies_ref = io::read_xvg(
@@ -123,7 +138,7 @@ mod tests {
             "test_targets/100_atoms/100_atoms.trr"
         ).unwrap();
 
-        let (topol, mut pairlist) = Topology::lj_fluid::<SimplePairlist<_>, Pbc>(
+        let topol = Topology::lj_fluid(
             "Me".to_string(),
             100,
             0.3405 * NM,
@@ -131,11 +146,11 @@ mod tests {
             1.2 * NM
         ).unwrap();
 
-        let energies = lj_from_positions(
+
+        let energies = pot_from_positions(
             &positions,
             &topol,
-            &Pbc::cubic(5.0*NM),
-            &mut pairlist
+            &Pbc::cubic(5.0*NM)
         ).unwrap();
 
         let energies_ref = io::read_xvg(

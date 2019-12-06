@@ -49,7 +49,7 @@ impl<B: BoundaryConditions> Pairlist<B> for SimplePairlist<B> {
         }
     }
 
-    fn cutoff(&self) -> Cutoff {
-        Some(self.cutoff)
+    fn pairlist_params(&self) -> PairlistParams {
+        PairlistParams::NonbondedCutoff(self.cutoff)
     }
 }

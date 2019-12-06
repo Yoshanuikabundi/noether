@@ -1,14 +1,37 @@
 use crate::boundaries::BoundaryConditions;
-use crate::pairlist::{Pairlist};
+use crate::pairlist::PairlistParams;
 use crate::units::f64;
 use crate::result::*;
 use uom::typenum::consts::*;
 use super::Potential;
 
+/// Compute the Lennard-Jones energy of a pair of atoms
+///
+/// $$ V_\mathrm{atom} = 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
+///
+/// # Arguments
+///
+/// * `r_squared` - squared distance between atoms ($r^2$)
+/// * `sigma_squared` - finite squared distance at which the unshifted potential is zero ($\sigma^2$)
+/// * `epsilon` - depth of the energy well ($\epsilon$)
+/// * `shift` - energy at the cutoff ($V_\mathrm{cutoff}$)
+#[inline(always)]
+fn lennard_jones(
+    r_squared: f64::Area,
+    sigma_squared: f64::Area,
+    epsilon: f64::Energy,
+    shift: f64::Energy
+) -> f64::Energy {
+    let six = (sigma_squared / r_squared).powi(P3::new());
+    let twelve = six.powi(P2::new());
+
+    4.0 * epsilon * (twelve - six) - shift
+}
+
 /// u16 means ~66k unique LJ parameters
 type Atom = u16;
 
-pub struct LjPotential<'a, P: 'a + Pairlist<B>, B: BoundaryConditions> {
+pub struct LjPotential {
     /// LJ index for each atom.
     atoms: Vec<Atom>,
     /// lj_params is an atomtype in GROMACS
@@ -16,31 +39,14 @@ pub struct LjPotential<'a, P: 'a + Pairlist<B>, B: BoundaryConditions> {
     /// Precomputed mixed LJ parameters
     lj_params_pairs: Vec<Vec<LjParamsPair>>,
     /// Cutoff really is a feature of the topology
-    lj_cutoff: f64::Length,
-    /// The pairlist
-    pairlist: &'a P,
-    _marker: std::marker::PhantomData<B>
+    lj_cutoff: f64::Length
 }
 
-impl<'a, P: 'a +  Pairlist<B>, B: BoundaryConditions> LjPotential<'a, P, B> {
+impl LjPotential {
     fn new(
         atoms: Vec<Atom>,
         lj_params: Vec<LjParams>,
         lj_cutoff: f64::Length
-    ) -> Result<(Self, P)> {
-        let pairlist = P::new(Some(lj_cutoff))?;
-        let lj_pot = Self::with_pairlist(
-            atoms,
-            lj_params,
-            &pairlist
-        )?;
-        Ok((lj_pot, pairlist))
-    }
-
-    fn with_pairlist(
-        atoms: Vec<Atom>,
-        lj_params: Vec<LjParams>,
-        pairlist: &'a P
     ) -> Result<Self> {
         // Check that every atom has LJ parameters
         for atom in atoms.iter() {
@@ -48,11 +54,6 @@ impl<'a, P: 'a +  Pairlist<B>, B: BoundaryConditions> LjPotential<'a, P, B> {
                 return Err(IllegalTopology);
             }
         }
-
-        let lj_cutoff = match pairlist.cutoff() {
-            Some(f) => f,
-            None => return Err(CutoffRequired)
-        };
 
         // Pre-compute all LJ pairs
         // TODO: Replace Vec with some ndarray-style type
@@ -69,9 +70,7 @@ impl<'a, P: 'a +  Pairlist<B>, B: BoundaryConditions> LjPotential<'a, P, B> {
             atoms,
             _lj_params: lj_params,
             lj_params_pairs,
-            lj_cutoff,
-            pairlist,
-            _marker: std::marker::PhantomData
+            lj_cutoff
         })
 
     }
@@ -90,7 +89,7 @@ impl<'a, P: 'a +  Pairlist<B>, B: BoundaryConditions> LjPotential<'a, P, B> {
         sigma: f64::Length,
         epsilon: f64::Energy,
         cutoff: f64::Length
-    ) -> Result<(Self, P)> {
+    ) -> Result<Self> {
         let lj_param = LjParams { sigma, epsilon };
         let atom = 0;
         Self::new(
@@ -109,36 +108,38 @@ impl<'a, P: 'a +  Pairlist<B>, B: BoundaryConditions> LjPotential<'a, P, B> {
     }
 }
 
-impl<P: Pairlist<B>, B: BoundaryConditions> Potential for LjPotential<'_, P, B> {
-    /// Compute the Lennard-Jones energy of a single frame
+impl<B: BoundaryConditions> Potential<B> for LjPotential {
+    /// Compute the Lennard-Jones energy of a pair of atoms
     ///
     /// $$ V_\mathrm{frame} = \sum_\mathrm{atoms} 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
     ///
     /// # Arguments
     ///
-    /// * `pairlist` - Pairlist to compute for, includes atom indices and distances
+    /// * `i`, `j` - Atom indices
+    /// * `r_squared` - squared distance between atoms
     ///
     /// # Panics
     ///
-    /// Panics if an index in the pairlist isn't present in the topology
-    fn compute_potential(&self) -> f64::Energy {
-        self.pairlist
-            .iter()
-            .fold(
-                0.0 * f64::KJPERMOL,
-                |energy, ([i, j], r_squared)| {
-                    energy
-                    + self
-                        .get_lj_pair(*i, *j)
-                        .unwrap()
-                        .lj_potential(*r_squared)
-                }
-            )
+    /// Panics if `i` or `j` isn't present in the topology
+    #[inline]
+    fn potential(&self, i: usize, j: usize, r_squared: f64::Area) -> f64::Energy {
+        let LjParamsPair { sigma_squared, epsilon, shift } = self.get_lj_pair(i, j).unwrap();
+
+        lennard_jones(
+            r_squared,
+            *sigma_squared,
+            *epsilon,
+            *shift
+        )
     }
 
     /// Return the number of atoms in the topology
     fn num_atoms(&self) -> usize {
         self.atoms.len()
+    }
+
+    fn pairlist_params(&self) -> PairlistParams {
+        PairlistParams::NonbondedCutoff(self.lj_cutoff)
     }
 }
 
@@ -170,40 +171,21 @@ impl LjParamsPair {
             epsilon: epsilon_b
         } = b;
 
+
         let sigma_squared = *sigma_a * *sigma_b;
         let epsilon = (*epsilon_a * *epsilon_b).sqrt();
-        let shift = LjParamsPair {
+        let shift = lennard_jones(
+            cutoff * cutoff,
             sigma_squared,
             epsilon,
-            shift: 0.0 * f64::KJPERMOL
-        }.lj_potential(cutoff * cutoff);
+            0.0 * f64::KJPERMOL
+        );
 
         LjParamsPair {
             sigma_squared,
             epsilon,
             shift
         }
-    }
-
-    /// Compute the LJ potential of a pair of atoms
-    ///
-    /// $$ V = 4 \epsilon \left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right] - V_\mathrm{cutoff} $$
-    ///
-    /// # Arguments
-    ///
-    /// * `r_squared: Area`: Square of the distance between particles ($r^2$)
-    ///
-    /// # Other values
-    ///
-    /// * `sigma_squared: Length`: Finite distance squared at which potential is zero ($\sigma^2$)
-    /// * `epsilon: Energy`: Depth of potential well ($\epsilon$)
-    /// * `shift: Energy`: Potential value at cutoff ($V_\mathrm{cutoff}$)
-    #[inline]
-    pub fn lj_potential(&self, r_squared: f64::Area) -> f64::Energy {
-        let six = (self.sigma_squared / r_squared).powi(P3::new());
-        let twelve = six.powi(P2::new());
-
-        4.0 * self.epsilon * (twelve - six) - self.shift
     }
 }
 

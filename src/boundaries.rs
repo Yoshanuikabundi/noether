@@ -1,4 +1,4 @@
-use crate::pairlist::{Pairlist};
+use crate::pairlist::{Pairlist, PairlistParams};
 use crate::units::f64;
 use crate::result::*;
 
@@ -173,9 +173,9 @@ impl BoundaryConditions for Pbc {
         &self,
         pairlist: &P
     ) -> Result<()> {
-        let cutoff = match pairlist.cutoff() {
-            None => return Ok(()),
-            Some(cutoff) => cutoff
+        #[allow(clippy::infallible_destructuring_match)] // TODO: remove this allow when other PairlistParams exist
+        let cutoff = match pairlist.pairlist_params() {
+            PairlistParams::NonbondedCutoff(c) => c
         };
 
         let Pbc(a, b, c) = *self;

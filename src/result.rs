@@ -15,9 +15,9 @@ pub enum Error {
     /// Error variant when attempting to create an illegal topology.
     IllegalTopology,
 
-    /// Error variant when a topology has potentials with different
-    /// cutoffs
-    InconsistentCutoffs,
+    /// Error variant when a potential is computed on an incompatible
+    /// pairlist
+    PairlistNotCompatible,
 
     /// Error variant when a cutoff is required but not present
     CutoffRequired,
@@ -46,7 +46,7 @@ impl Error {
             ValueError(_) => "ValueError",
             IllegalTopology => "IllegalTopology",
             CutoffRequired => "CutoffRequired",
-            InconsistentCutoffs => "InconsistentCutoffs",
+            PairlistNotCompatible => "PairlistNotCompatible",
             PositionTopologyMismatch => "PositionTopologyMismatch"
         }
     }
@@ -60,9 +60,8 @@ impl Error {
             ).to_string(),
             IllegalTopology => "Atom mismatch in proposed topology".to_string(),
             CutoffRequired => "Cutoff required but not found".to_string(),
-            InconsistentCutoffs => concat!(
-                "All potentials in a topology must have ",
-                "the same cutoff or no cutoff"
+            PairlistNotCompatible => concat!(
+                "Potential was incompatible with a pairlist"
             ).to_string(),
             PositionTopologyMismatch => concat!(
                 "Number of atom positions does not match number of ",

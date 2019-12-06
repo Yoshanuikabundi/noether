@@ -3,7 +3,7 @@ extern crate noether;
 use noether::units::f64::KJPERMOL;
 use noether::units::f64::NM;
 use noether::io;
-use noether::lj_from_positions;
+use noether::pot_from_positions;
 use noether::boundaries::*;
 use noether::FriendlyResult;
 use noether::topology::Topology;
@@ -27,7 +27,7 @@ fn main() {
 
     let positions = io::read_positions("test_targets/2_atoms/2_atoms_frommax.trr").unwrap();
 
-    let energies = lj_from_positions(
+    let energies = pot_from_positions(
         &positions,
         &topol_2atoms,
         &NoBounds,
@@ -41,7 +41,7 @@ fn main() {
 
     let positions = io::read_positions("test_targets/100_atoms/100_atoms.trr").unwrap();
 
-    let energies = lj_from_positions(
+    let energies = pot_from_positions(
         &positions,
         &topol_100atoms,
         &Pbc::cubic(5.0*NM),
@@ -53,7 +53,7 @@ fn main() {
         println!("noether = {:?}, gromacs = {:?}", *a, b * KJPERMOL);
     }
 
-    lj_from_positions(
+    pot_from_positions(
         &positions,
         &topol_2atoms,
         &NoBounds,

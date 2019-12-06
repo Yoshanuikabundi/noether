@@ -23,9 +23,14 @@ pub trait Pairlist<B: BoundaryConditions>
     /// Iterate over the atom pairs in the pairlist
     fn iter(&self) -> std::slice::Iter<AtomPair>;
 
+    /// Produce a new pairlist
     fn new(cutoff: Cutoff) -> Result<Self> where Self: Sized;
 
-    fn cutoff(&self) -> Cutoff;
+    /// Get the parameters of the pairlist
+    fn pairlist_params(&self) -> PairlistParams;
 }
 
-
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum PairlistParams {
+    NonbondedCutoff(f64::Length)
+}
