@@ -1,14 +1,15 @@
 use super::*;
 
 /// SimplePairlist must recompute the entire pairlist whenever
-/// the positions change
+/// the positions change and stores all pairs within a cutoff
+/// in its neighbourlist
 pub struct SimplePairlist<B: BoundaryConditions> {
     pairs: Vec<AtomPair>,
     cutoff: f64::Length,
     _marker: std::marker::PhantomData<B>
 }
 
-impl<B: BoundaryConditions> Pairlist<B> for SimplePairlist<B> {
+impl<B: BoundaryConditions> Neighbourlist<B> for SimplePairlist<B> {
     /// Update the pairlist based on the positions of atoms
     ///
     /// This completely rebuilds the pairlist from scratch.
@@ -73,17 +74,17 @@ impl<B: BoundaryConditions> Pairlist<B> for SimplePairlist<B> {
         }
     }
 
-    fn pairlist_params(&self) -> PairlistParams {
-        PairlistParams::NonbondedCutoff(self.cutoff)
+    fn neighbourlist_params(&self) -> NeighbourlistParams {
+        NeighbourlistParams::NonbondedCutoff(self.cutoff)
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::pairlist::AtomPair;
-    use crate::pairlist::simple::SimplePairlist;
-    use crate::pairlist::Pairlist;
+    use crate::neighbourlist::AtomPair;
+    use crate::neighbourlist::simple::SimplePairlist;
+    use crate::neighbourlist::Neighbourlist;
     use crate::units::f64;
     use crate::result::Result;
 

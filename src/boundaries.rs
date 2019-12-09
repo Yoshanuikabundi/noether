@@ -1,4 +1,4 @@
-use crate::pairlist::{Pairlist, PairlistParams};
+use crate::neighbourlist::{Neighbourlist, NeighbourlistParams};
 use crate::units::f64;
 use crate::result::*;
 
@@ -55,9 +55,9 @@ pub trait BoundaryConditions {
          + (z2 - z1).powi(P2::new())
     }
 
-    fn pairlist_checks<P: Pairlist<Self>>(
+    fn neighbourlist_checks<P: Neighbourlist<Self>>(
         &self,
-        _pairlist: &P
+        _neighbourlist: &P
     ) -> Result<()>  where Self: std::marker::Sized {
         Ok(())
     }
@@ -169,13 +169,13 @@ impl BoundaryConditions for Pbc {
         min
     }
 
-    fn pairlist_checks<P: Pairlist<Self>>(
+    fn neighbourlist_checks<P: Neighbourlist<Self>>(
         &self,
-        pairlist: &P
+        neighbourlist: &P
     ) -> Result<()> {
-        #[allow(clippy::infallible_destructuring_match)] // TODO: remove this allow when other PairlistParams exist
-        let cutoff = match pairlist.pairlist_params() {
-            PairlistParams::NonbondedCutoff(c) => c
+        #[allow(clippy::infallible_destructuring_match)] // TODO: remove this allow when other NeighbourlistParams exist
+        let cutoff = match neighbourlist.neighbourlist_params() {
+            NeighbourlistParams::NonbondedCutoff(c) => c
         };
 
         let Pbc(a, b, c) = *self;

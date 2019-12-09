@@ -17,10 +17,10 @@ pub mod io;
 /// Store a simulation's boundary conditions and perform relevant calculations (eg, distances)
 pub mod boundaries;
 
-/// Store and compute the simulations pairlist
-pub mod pairlist;
-use pairlist::{Pairlist, PairlistParams};
-use pairlist::simple::SimplePairlist;
+/// Store and compute the simulations neighbourlist
+pub mod neighbourlist;
+use neighbourlist::{Neighbourlist, NeighbourlistParams};
+use neighbourlist::simple::SimplePairlist;
 
 /// Store the topology of a simulation
 ///
@@ -44,7 +44,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// Returns a list of values $V_\mathrm{frame}$ for each frame.
 ///
-/// The pairlist is regenerated every frame. This is very expensive, but allows uncorrelated frames to be computed.
+/// The neighbourlist is regenerated every frame. This is very expensive, but allows uncorrelated frames to be computed.
 ///
 /// # Arguments
 ///
@@ -58,10 +58,10 @@ pub fn pot_from_positions<B: BoundaryConditions>(
 ) -> Result<Vec<f64::Energy>> {
     let mut energies = Vec::with_capacity(frames.len());
 
-    // Construct the pairlists for the topology and store them together
-    let mut pairlists_dict: HashMap<String, SimplePairlist<B>> = HashMap::new();
-    for PairlistParams::NonbondedCutoff(cutoff) in top.iter_pairlists() {
-        pairlists_dict
+    // Construct the neighbourlists for the topology and store them together
+    let mut neighbourlists_dict: HashMap<String, SimplePairlist<B>> = HashMap::new();
+    for NeighbourlistParams::NonbondedCutoff(cutoff) in top.iter_neighbourlists() {
+        neighbourlists_dict
             .entry(format!("{:?}", cutoff))
             .or_insert(SimplePairlist::new(Some(cutoff))?);
     }
@@ -71,21 +71,21 @@ pub fn pot_from_positions<B: BoundaryConditions>(
             return Err(PositionTopologyMismatch);
         }
 
-        // Update all the pairlists
-        pairlists_dict
+        // Update all the neighbourlists
+        neighbourlists_dict
             .iter_mut()
-            .try_for_each(|(_, pairlist)| pairlist.regenerate(frame, boundaries))?
+            .try_for_each(|(_, neighbourlist)| neighbourlist.regenerate(frame, boundaries))?
         ;
 
-        // Construct a list of pairlists that matches the topology
-        let mut pairlists: Vec<&dyn Pairlist<B>> = vec![];
-        for PairlistParams::NonbondedCutoff(cutoff) in top.iter_pairlists() {
-            let pairlist = pairlists_dict.get(&format!("{:?}", cutoff)).unwrap();
-            boundaries.pairlist_checks(pairlist)?;
-            pairlists.push(pairlist)
+        // Construct a list of neighbourlists that matches the topology
+        let mut neighbourlists: Vec<&dyn Neighbourlist<B>> = vec![];
+        for NeighbourlistParams::NonbondedCutoff(cutoff) in top.iter_neighbourlists() {
+            let neighbourlist = neighbourlists_dict.get(&format!("{:?}", cutoff)).unwrap();
+            boundaries.neighbourlist_checks(neighbourlist)?;
+            neighbourlists.push(neighbourlist)
         }
 
-        let energy = top.compute_potential(&pairlists);
+        let energy = top.compute_potential(&neighbourlists);
 
         energies.push(energy);
     }

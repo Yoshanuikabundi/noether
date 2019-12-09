@@ -6,9 +6,9 @@ pub enum Error {
     ///
     /// If the cutoff for an interaction is larger than the smallest
     /// dimension of the box, then it's possible that a pair of atoms
-    /// should appear twice in the pairlist. Because constructing the
-    /// pairlist is an $\mathcal{O}(N^2)$ operation already, we use
-    /// the minimum image convention to construct the pairlist, which
+    /// should appear twice in the neighbourlist. Because constructing the
+    /// neighbourlist is an $\mathcal{O}(N^2)$ operation already, we use
+    /// the minimum image convention to construct the neighbourlist, which
     /// only permits a pair of atoms to appear once.
     MinimumImageConventionNotJustified,
 
@@ -16,8 +16,8 @@ pub enum Error {
     IllegalTopology,
 
     /// Error variant when a potential is computed on an incompatible
-    /// pairlist
-    PairlistNotCompatible,
+    /// neighbourlist
+    NeighbourlistNotCompatible,
 
     /// Error variant when a cutoff is required but not present
     CutoffRequired,
@@ -46,7 +46,7 @@ impl Error {
             ValueError(_) => "ValueError",
             IllegalTopology => "IllegalTopology",
             CutoffRequired => "CutoffRequired",
-            PairlistNotCompatible => "PairlistNotCompatible",
+            NeighbourlistNotCompatible => "NeighbourlistNotCompatible",
             PositionTopologyMismatch => "PositionTopologyMismatch"
         }
     }
@@ -60,8 +60,8 @@ impl Error {
             ).to_string(),
             IllegalTopology => "Atom mismatch in proposed topology".to_string(),
             CutoffRequired => "Cutoff required but not found".to_string(),
-            PairlistNotCompatible => concat!(
-                "Potential was incompatible with a pairlist"
+            NeighbourlistNotCompatible => concat!(
+                "Potential was incompatible with a neighbourlist"
             ).to_string(),
             PositionTopologyMismatch => concat!(
                 "Number of atom positions does not match number of ",

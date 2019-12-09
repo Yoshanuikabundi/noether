@@ -1,5 +1,5 @@
 use crate::boundaries::BoundaryConditions;
-use crate::pairlist::PairlistParams;
+use crate::neighbourlist::NeighbourlistParams;
 use crate::units::f64;
 use crate::result::*;
 use uom::typenum::consts::*;
@@ -138,8 +138,8 @@ impl<B: BoundaryConditions> Potential<B> for LjPotential {
         self.atoms.len()
     }
 
-    fn pairlist_params(&self) -> PairlistParams {
-        PairlistParams::NonbondedCutoff(self.lj_cutoff)
+    fn neighbourlist_params(&self) -> NeighbourlistParams {
+        NeighbourlistParams::NonbondedCutoff(self.lj_cutoff)
     }
 }
 

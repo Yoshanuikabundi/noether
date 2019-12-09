@@ -1,5 +1,5 @@
 use crate::boundaries::BoundaryConditions;
-use crate::pairlist::{Pairlist, PairlistParams};
+use crate::neighbourlist::{Neighbourlist, NeighbourlistParams};
 use crate::units::f64;
 use crate::result::*;
 
@@ -17,19 +17,19 @@ trait Potential<B: BoundaryConditions>
     /// the topology
     fn num_atoms(&self) -> usize;
 
-    /// Get the pairlist parameters of the potential
-    fn pairlist_params(&self) -> PairlistParams;
+    /// Get the neighbourlist parameters of the potential
+    fn neighbourlist_params(&self) -> NeighbourlistParams;
 
     /// Compute the potential for a single pair of atom indices and squared distance
     fn potential(&self, i: usize, j: usize, r_squared: f64::Area) -> f64::Energy;
 
-    /// Compute the potential for the entire pairlist
-    fn compute_potential(&self, pairlist: &dyn Pairlist<B>) -> Result<f64::Energy> {
-        if pairlist.pairlist_params() != self.pairlist_params() {
-            return Err(PairlistNotCompatible)
+    /// Compute the potential for the entire neighbourlist
+    fn compute_potential(&self, neighbourlist: &dyn Neighbourlist<B>) -> Result<f64::Energy> {
+        if neighbourlist.neighbourlist_params() != self.neighbourlist_params() {
+            return Err(NeighbourlistNotCompatible)
         }
 
-        Ok(pairlist
+        Ok(neighbourlist
             .iter()
             .fold(
                 0.0 * f64::KJPERMOL,
@@ -128,12 +128,12 @@ impl<B: BoundaryConditions> Topology<B> {
         self.atom_names.iter()
     }
 
-    /// Iterate over the potential's pairlist parameters
-    pub fn iter_pairlists<'a>(&'a self) -> Box<dyn Iterator<Item=PairlistParams> + 'a> {
+    /// Iterate over the potential's neighbourlist parameters
+    pub fn iter_neighbourlists<'a>(&'a self) -> Box<dyn Iterator<Item=NeighbourlistParams> + 'a> {
         Box::new(self
             .potentials
             .iter()
-            .map(|pot| pot.pairlist_params())
+            .map(|pot| pot.neighbourlist_params())
         )
     }
 
@@ -142,30 +142,30 @@ impl<B: BoundaryConditions> Topology<B> {
         self.atom_names.len()
     }
 
-    /// Compute the total potential of the topology from the pairlists
+    /// Compute the total potential of the topology from the neighbourlists
     ///
     /// # Arguments
     ///
-    /// * `pairlists`: Vector of references to the pairlists, in the same order as the potentials.
+    /// * `neighbourlists`: Vector of references to the neighbourlists, in the same order as the potentials.
     ///
     /// # Panics
     ///
-    /// Panics if the vector of pairlists doesn't match the potentials
-    pub fn compute_potential(&self, pairlists: &Vec<&dyn Pairlist<B>>) -> f64::Energy {
-        let panicstr = "Pairlists must match potentials";
+    /// Panics if the vector of neighbourlists doesn't match the potentials
+    pub fn compute_potential(&self, neighbourlists: &Vec<&dyn Neighbourlist<B>>) -> f64::Energy {
+        let panicstr = "Neighbourlists must match potentials";
 
-        if pairlists.len() != self.potentials.len() {
+        if neighbourlists.len() != self.potentials.len() {
             panic!(panicstr)
         }
 
         self
             .potentials
             .iter()
-            .zip(pairlists)
+            .zip(neighbourlists)
             .fold(
                 0.0 * f64::KJPERMOL,
-                |acc, (pot, pairlist)| {
-                    acc + pot.compute_potential(*pairlist).expect(panicstr)
+                |acc, (pot, neighbourlist)| {
+                    acc + pot.compute_potential(*neighbourlist).expect(panicstr)
                 }
             )
     }
