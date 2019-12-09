@@ -13,7 +13,23 @@ pub type AtomPair = ([usize; 2], f64::Area);
 /// Trait for producing pairlists to compute potentials from
 pub trait Pairlist<B: BoundaryConditions>
 {
+    /// Regenerate the pairlist based on the positions of atoms
+    ///
+    /// This is an expensive computation guaranteed to produce a
+    /// correct pairlist (within whatever error bounds the
+    /// implementation provides. Check the implementaton docs
+    /// for details.
+    fn regenerate(
+        &mut self,
+        positions: &[[f64::Length; 3]],
+        boundaries: &B
+    ) -> Result<()>;
+
     /// Update the pairlist based on the positions of atoms
+    ///
+    /// This is a cheap computation that usually makes weaker
+    /// guarantees than regenerate. Check the implementation
+    /// docs for details.
     fn update(
         &mut self,
         positions: &[[f64::Length; 3]],

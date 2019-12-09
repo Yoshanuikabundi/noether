@@ -74,7 +74,7 @@ pub fn pot_from_positions<B: BoundaryConditions>(
         // Update all the pairlists
         pairlists_dict
             .iter_mut()
-            .try_for_each(|(_, pairlist)| pairlist.update(frame, boundaries))?
+            .try_for_each(|(_, pairlist)| pairlist.regenerate(frame, boundaries))?
         ;
 
         // Construct a list of pairlists that matches the topology
