@@ -49,6 +49,7 @@ storage_types! {
 
     pub const BOLTZMANN_CONSTANT: Entropy = Entropy {value: 8.314_462_1_E-3, dimension: PhantomData, units: PhantomData};
 
+    /// Integer types are always of dimension One
     impl<U> From<Quantity<DimensionOne, U, V>> for V
         where
             U: Units<V> + ?Sized

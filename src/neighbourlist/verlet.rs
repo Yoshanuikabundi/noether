@@ -1,4 +1,4 @@
-use crate::boundaries::NoBounds;
+use crate::boundaries::{NoBounds, Pbc};
 use super::*;
 
 /// Verlet pairlist
@@ -24,7 +24,7 @@ impl VerletPairlist<NoBounds> {
             cutoff,
             buffer,
             _marker: std::marker::PhantomData,
-            cell_list: CellList::new(
+            cell_list: CellList::<NoBounds>::new(
                 NoBounds,
                 [n_cells; 3],
                 [cutoff + buffer; 3],
@@ -93,8 +93,8 @@ struct CellList<B: BoundaryConditions> {
     boundaries: B,
     /// The indices of atoms in each cell
     ///
-    /// Cells are stored as (0,0,0), (0,0,1), (0,0,2), (0,1,0) etc...
-    /// Indices of the start of each cell are stored in the head field
+    /// Cells are stored in the order (0,0,0), (0,0,1), (0,0,2), (0,1,0) etc...
+    /// Indices of the start of each cell are stored in the head field.
     indices: Vec<Option<usize>>,
     /// The indices of the first atoms of each cell
     head: Vec<Option<usize>>,
@@ -173,6 +173,98 @@ impl CellList<NoBounds> {
                 })
             })
         })
+    }
+
+    fn iter_pairs(&self) -> impl Iterator<Item=(usize, usize)> + '_ {
+        self.iter_cells().flat_map(move |cell_index| {
+            self.iter_cell_atoms(cell_index).flat_map(move |atom_a_idx| {
+                self.iter_neighbouring_cells(cell_index, 1).flat_map(move |neighbour_cell_index| {
+                    self.iter_cell_atoms(neighbour_cell_index).map(move |atom_b_idx| {
+                        (atom_a_idx, atom_b_idx)
+                    })
+                })
+            })
+        })
+    }
+}
+
+impl CellList<Pbc> {
+    fn new(
+        boundaries: Pbc,
+        min_cell_length: f64::Length,
+        positions: &[[f64::Length; 3]]
+    ) -> Self {
+        let Pbc([xi, yi, zi], [xj, yj, zj], [xk, yk, zk]) = boundaries;
+        let n_cells = [
+            f64::from((xi + xj + xk) / min_cell_length) as usize,
+            f64::from((yi + yj + yk) / min_cell_length) as usize,
+            f64::from((zi + zj + zk) / min_cell_length) as usize
+        ];
+        let [a, b, c] = n_cells;
+        let cell_length = [
+            (xi + xj + xk) / a as f64,
+            (yi + yj + yk) / b as f64,
+            (zi + zj + zk) / c as f64,
+        ];
+
+        let mut new = Self {
+            n_cells,
+            cell_length,
+            boundaries,
+            indices: vec![None; positions.len()],
+            head: vec![None; a * b * c],
+        };
+
+        new.regenerate(positions);
+
+        new
+    }
+
+    #[allow(clippy::many_single_char_names)]
+    fn position_to_cell(&self, position: &[f64::Length; 3]) -> usize {
+        let [x, y, z] = position;
+        let [i, j, k] = self.n_cells;
+        let [l_x, l_y, l_z] = self.cell_length;
+
+        // Cells out of the box wrap around
+        let x_idx = (f64::from(*x / l_x) % i as f64) as usize;
+        let y_idx = (f64::from(*y / l_y) % j as f64) as usize;
+        let z_idx = (f64::from(*z / l_z) % k as f64) as usize;
+
+        z_idx + k * y_idx + j * k * x_idx
+    }
+
+    fn iter_neighbouring_cells(&self, cell: usize, neighbours: usize) -> impl Iterator<Item=usize> {
+        let [i, j, k] = self.n_cells;
+        let x_idx = cell / (j * k);
+        let y_idx = (cell - x_idx) / k;
+        let z_idx = cell - x_idx - y_idx;
+
+        let neighbours = neighbours as isize;
+
+        (-neighbours..neighbours).flat_map(move |dx| {
+            (-neighbours..neighbours).flat_map(move |dy| {
+                (-neighbours..neighbours).map(move |dz| {
+                    let mut x_idx_d = (x_idx as isize + dx) % i as isize;
+                    if x_idx_d < 0 { x_idx_d = i as isize + x_idx_d };
+
+                    let mut y_idx_d = (y_idx as isize + dy) % j as isize;
+                    if y_idx_d < 0 { y_idx_d = j as isize + y_idx_d };
+
+                    let mut z_idx_d = (z_idx as isize + dz) % k as isize;
+                    if z_idx_d < 0 { z_idx_d = k as isize + z_idx_d };
+
+                    z_idx_d as usize + k * y_idx_d as usize + j * k * x_idx_d as usize
+                })
+            })
+        })
+    }
+
+    fn regenerate(&mut self, positions: &[[f64::Length; 3]]) {
+        for (i, [x, y, z]) in positions.iter().enumerate() {
+            let cell_index = self.position_to_cell(&[*x, *y, *z]);
+            self.add_atom(i, cell_index);
+        }
     }
 
     fn iter_pairs(&self) -> impl Iterator<Item=(usize, usize)> + '_ {
