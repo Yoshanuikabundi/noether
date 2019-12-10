@@ -9,6 +9,16 @@ pub struct SimplePairlist<B: BoundaryConditions> {
     _marker: std::marker::PhantomData<B>
 }
 
+impl<B: BoundaryConditions> SimplePairlist<B> {
+    pub fn new(cutoff: f64::Length) -> Self where Self: Sized {
+        Self {
+            pairs: vec![],
+            cutoff,
+            _marker: std::marker::PhantomData
+        }
+    }
+}
+
 impl<B: BoundaryConditions> Neighbourlist<B> for SimplePairlist<B> {
     /// Update the pairlist based on the positions of atoms
     ///
@@ -62,18 +72,6 @@ impl<B: BoundaryConditions> Neighbourlist<B> for SimplePairlist<B> {
         self.pairs.iter()
     }
 
-    fn new(cutoff: Cutoff) -> Result<Self> where Self: Sized {
-        if let Some(cutoff) = cutoff {
-            Ok(Self {
-                pairs: vec![],
-                cutoff,
-                _marker: std::marker::PhantomData
-            })
-        } else {
-            Err(CutoffRequired)
-        }
-    }
-
     fn neighbourlist_params(&self) -> NeighbourlistParams {
         NeighbourlistParams::NonbondedCutoff(self.cutoff)
     }
@@ -106,7 +104,7 @@ mod tests {
 
     #[test]
     fn check_update_regenerate() {
-        let mut pairlist = SimplePairlist::new(Some(1.2 * f64::NM)).unwrap();
+        let mut pairlist = SimplePairlist::new(1.2 * f64::NM);
         let boundaries = crate::boundaries::NoBounds;
         pairlist.regenerate(
             &vec![

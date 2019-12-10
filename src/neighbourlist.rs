@@ -4,6 +4,7 @@ use crate::result::*;
 use crate::boundaries::BoundaryConditions;
 
 pub mod simple;
+pub mod verlet;
 
 pub type Cutoff = Option<f64::Length>;
 
@@ -38,9 +39,6 @@ pub trait Neighbourlist<B: BoundaryConditions>
 
     /// Iterate over the atom pairs in the neighbourlist
     fn iter(&self) -> std::slice::Iter<AtomPair>;
-
-    /// Produce a new neighbourlist
-    fn new(cutoff: Cutoff) -> Result<Self> where Self: Sized;
 
     /// Get the parameters of the neighbourlist
     fn neighbourlist_params(&self) -> NeighbourlistParams;

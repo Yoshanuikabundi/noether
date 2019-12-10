@@ -31,6 +31,8 @@ storage_types! {
 
     Q!(crate::units, V);
 
+    use crate::units::{Quantity, Units, DimensionOne};
+
     use std::marker::PhantomData;
 
     pub const NM: Length = Length {value: 1.0, dimension: PhantomData, units: PhantomData};
@@ -46,6 +48,16 @@ storage_types! {
     pub const AVOGADROS_NUMBER: V = 6.022_140_76_E23;
 
     pub const BOLTZMANN_CONSTANT: Entropy = Entropy {value: 8.314_462_1_E-3, dimension: PhantomData, units: PhantomData};
+
+    impl<U> From<Quantity<DimensionOne, U, V>> for V
+        where
+            U: Units<V> + ?Sized
+    {
+        fn from(q: Quantity<DimensionOne, U, V>) -> V
+        {
+            q.value
+        }
+    }
 }
 
 

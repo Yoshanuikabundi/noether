@@ -63,7 +63,7 @@ pub fn pot_from_positions<B: BoundaryConditions>(
     for NeighbourlistParams::NonbondedCutoff(cutoff) in top.iter_neighbourlists() {
         neighbourlists_dict
             .entry(format!("{:?}", cutoff))
-            .or_insert(SimplePairlist::new(Some(cutoff))?);
+            .or_insert(SimplePairlist::new(cutoff));
     }
 
     for frame in frames {
