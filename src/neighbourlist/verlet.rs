@@ -30,7 +30,6 @@ impl VerletPairlist<NoBounds> {
                 [cutoff + buffer; 3],
                 &[]
             )
-
         }
     }
 }
@@ -195,16 +194,21 @@ impl CellList<Pbc> {
         positions: &[[f64::Length; 3]]
     ) -> Self {
         let Pbc([xi, yi, zi], [xj, yj, zj], [xk, yk, zk]) = boundaries;
+
+        let i_len = (xi*xi + yi*yi + zi*zi).sqrt();
+        let j_len = (xj*xj + yj*yj + zj*zj).sqrt();
+        let k_len = (xk*xk + yk*yk + zk*zk).sqrt();
+
         let n_cells = [
-            f64::from((xi + xj + xk) / min_cell_length) as usize,
-            f64::from((yi + yj + yk) / min_cell_length) as usize,
-            f64::from((zi + zj + zk) / min_cell_length) as usize
+            f64::from(i_len / min_cell_length) as usize,
+            f64::from(j_len / min_cell_length) as usize,
+            f64::from(k_len / min_cell_length) as usize
         ];
         let [a, b, c] = n_cells;
         let cell_length = [
-            (xi + xj + xk) / a as f64,
-            (yi + yj + yk) / b as f64,
-            (zi + zj + zk) / c as f64,
+            i_len / a as f64,
+            j_len / b as f64,
+            k_len / c as f64,
         ];
 
         let mut new = Self {
